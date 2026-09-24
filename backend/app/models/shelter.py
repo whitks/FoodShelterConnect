@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Float, Integer, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid
 from backend.app.database import Base
@@ -17,6 +17,7 @@ class ShelterProfile(Base):
     area_zone: Mapped[str] = mapped_column(String, nullable=False)
     avg_daily_beneficiaries: Mapped[int] = mapped_column(Integer, nullable=False)
     current_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_auto_pilot: Mapped[bool] = mapped_column(Boolean, default=False)
     priority_score: Mapped[float] = mapped_column(Float, default=50.0)
     last_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
