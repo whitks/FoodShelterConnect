@@ -28,7 +28,6 @@ import {
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -37,6 +36,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 
@@ -63,6 +63,7 @@ const nearbySurplusFeed = [
     shelfLife: 'Best within 4 hours (by 6:30 PM)',
     dietTag: 'Veg',
     photoUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
+    fallbackDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%2318352b"/><circle cx="300" cy="200" r="130" fill="%23244a3d"/><circle cx="230" cy="180" r="60" fill="%23dd835d"/><circle cx="350" cy="170" r="55" fill="%237ea441"/><circle cx="300" cy="260" r="55" fill="%23e6f0c9"/><text x="300" y="365" font-family="sans-serif" font-size="22" font-weight="bold" fill="%23d7ee85" text-anchor="middle">🌱 Fresh Veg Meals %26 Rotis</text></svg>',
     address: '42 Commercial St, Indiranagar',
   },
   {
@@ -75,6 +76,7 @@ const nearbySurplusFeed = [
     shelfLife: 'Best within 5 hours (by 7:00 PM)',
     dietTag: 'Veg',
     photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80',
+    fallbackDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%2318352b"/><rect x="150" y="120" width="300" height="160" rx="20" fill="%235c9686"/><text x="300" y="365" font-family="sans-serif" font-size="22" font-weight="bold" fill="%23d7ee85" text-anchor="middle">🍲 Catered Rice %26 Trays</text></svg>',
     address: 'Grand Palace Hall, Koramangala',
   },
 ];
@@ -761,7 +763,13 @@ export default function ShelterScreen() {
 
                 {nearbySurplusFeed.map((item) => (
                   <View key={item.id} style={styles.surplusCard}>
-                    <Image source={{ uri: item.photoUrl }} style={styles.surplusPhoto} />
+                    <Image
+                      source={{ uri: item.photoUrl }}
+                      placeholder={{ uri: item.fallbackDataUri }}
+                      style={styles.surplusPhoto}
+                      contentFit="cover"
+                      transition={150}
+                    />
                     <View style={styles.surplusContent}>
                       <View style={styles.surplusTopRow}>
                         <Text style={styles.restName}>{item.restaurantName}</Text>

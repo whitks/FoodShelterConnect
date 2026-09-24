@@ -10,6 +10,7 @@ import {
   MapPin,
   Menu,
   PackageCheck,
+  PlusCircle,
   Recycle,
   Route,
   ShieldCheck,
@@ -23,7 +24,6 @@ import {
   Dimensions,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,8 +31,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_MOBILE = SCREEN_WIDTH < 768;
@@ -41,7 +42,7 @@ const steps = [
   {
     number: '01',
     title: 'Post surplus',
-    text: 'Share what food is ready, quantity, and pickup window in under 60 seconds.',
+    text: 'Kitchens post available food in under 60 seconds.',
     icon: Utensils,
     bgColor: '#e6f0c9',
     iconColor: '#7ea441',
@@ -49,7 +50,7 @@ const steps = [
   {
     number: '02',
     title: 'Get matched',
-    text: 'Algorithm pairs you with the nearest shelter or NGO with matching capacity.',
+    text: 'Algorithm pairs with the nearest verified shelter.',
     icon: MapPin,
     bgColor: '#f9ddcb',
     iconColor: '#d68154',
@@ -57,7 +58,7 @@ const steps = [
   {
     number: '03',
     title: 'Coordinate pickup',
-    text: 'A verified local volunteer driver accepts the route with live GPS updates.',
+    text: 'Volunteer driver accepts route with GPS tracking.',
     icon: Truck,
     bgColor: '#dcece9',
     iconColor: '#5c9686',
@@ -65,45 +66,16 @@ const steps = [
   {
     number: '04',
     title: 'Deliver impact',
-    text: 'Fresh food arrives safely. Every rescue is logged, certified, and tracked.',
+    text: 'Fresh food arrives safely. Tracked & tax certified.',
     icon: HeartHandshake,
     bgColor: '#e6e0ef',
     iconColor: '#8871a4',
   },
 ];
 
-const roles = [
-  {
-    icon: Utensils,
-    eyebrow: 'For food businesses',
-    title: 'Turn today’s extra into someone’s next meal.',
-    text: 'Post surplus in 60 seconds, set pickup windows, and get certified tax deduction logs.',
-    link: 'Start donating',
-    tone: 'lime',
-    type: 'donor',
-  },
-  {
-    icon: Building2,
-    eyebrow: 'For shelters & orgs',
-    title: 'Bring fresh surplus directly to your community.',
-    text: 'Specify what capacity and storage you have. Get linked to nearby kitchens and bakeries.',
-    link: 'Join the network',
-    tone: 'cream',
-    type: 'shelter',
-  },
-  {
-    icon: Bike,
-    eyebrow: 'For volunteers',
-    title: 'Make one small 15-min trip matter.',
-    text: 'Accept rescue routes near your location, follow turn-by-turn directions, and see impact live.',
-    link: 'Rescue a route',
-    tone: 'cream',
-    type: 'volunteer',
-  },
-];
-
 export default function MobileFirstLandingPage() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'donor' | 'shelter' | 'volunteer'>('donor');
@@ -114,9 +86,8 @@ export default function MobileFirstLandingPage() {
   const estimatedMealsMonthly = Math.round(numericKg * 2.2 * 30);
   const estimatedCo2Saved = Math.round(numericKg * 2.5 * 30);
 
-  // Form state
+  // Quick Action Form state
   const [formSubmitted, setFormSubmitted] = useState(false);
-  const [orgName, setOrgName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
 
   const handleOpenModal = (roleType: 'donor' | 'shelter' | 'volunteer' = 'donor') => {
@@ -137,10 +108,10 @@ export default function MobileFirstLandingPage() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, 12), paddingBottom: insets.bottom + 40 },
+          { paddingTop: Math.max(insets.top, 12), paddingBottom: insets.bottom + 90 },
         ]}
         showsVerticalScrollIndicator={false}>
-        
+
         {/* Header Navigation Bar */}
         <View style={styles.navBar}>
           <View style={styles.brandRow}>
@@ -154,20 +125,17 @@ export default function MobileFirstLandingPage() {
 
           {!IS_MOBILE ? (
             <View style={styles.desktopNavLinks}>
-              <TouchableOpacity onPress={() => handleOpenModal('donor')}>
-                <Text style={styles.navLinkText}>How it works</Text>
+              <TouchableOpacity onPress={() => router.push('/donor')}>
+                <Text style={styles.navLinkText}>Donate Food</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleOpenModal('donor')}>
-                <Text style={styles.navLinkText}>Calculator</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleOpenModal('donor')}>
-                <Text style={styles.navLinkText}>For Businesses</Text>
+              <TouchableOpacity onPress={() => router.push('/shelter')}>
+                <Text style={styles.navLinkText}>Shelters</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.navCtaButton}
                 activeOpacity={0.8}
-                onPress={() => handleOpenModal('donor')}>
-                <Text style={styles.navCtaText}>Join Network</Text>
+                onPress={() => router.push('/donor')}>
+                <Text style={styles.navCtaText}>Start Donation</Text>
                 <ArrowUpRight size={14} color="#ffffff" />
               </TouchableOpacity>
             </View>
@@ -186,26 +154,27 @@ export default function MobileFirstLandingPage() {
           <View style={styles.mobileDrawer}>
             <TouchableOpacity
               style={styles.mobileDrawerItem}
-              onPress={() => setMenuOpen(false)}>
-              <Text style={styles.mobileDrawerText}>How it works</Text>
+              onPress={() => {
+                setMenuOpen(false);
+                router.push('/donor');
+              }}>
+              <Text style={styles.mobileDrawerText}>🍳 Food Donor Portal</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.mobileDrawerItem}
-              onPress={() => setMenuOpen(false)}>
-              <Text style={styles.mobileDrawerText}>Impact Estimator</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.mobileDrawerItem}
-              onPress={() => setMenuOpen(false)}>
-              <Text style={styles.mobileDrawerText}>For Businesses</Text>
+              onPress={() => {
+                setMenuOpen(false);
+                router.push('/shelter');
+              }}>
+              <Text style={styles.mobileDrawerText}>🏠 NGO & Shelter Portal</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.mobileDrawerCta}
               onPress={() => {
                 setMenuOpen(false);
-                handleOpenModal('donor');
+                router.push('/donor');
               }}>
-              <Text style={styles.mobileDrawerCtaText}>Join Network</Text>
+              <Text style={styles.mobileDrawerCtaText}>Donate Surplus Now</Text>
               <ArrowUpRight size={16} color="#ffffff" />
             </TouchableOpacity>
           </View>
@@ -226,23 +195,23 @@ export default function MobileFirstLandingPage() {
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            Rescue connects surplus food from local kitchens and markets directly with shelters and people in need — before the clock runs out.
+            Connect surplus food from commercial kitchens directly with local shelters — before the clock runs out.
           </Text>
 
           <View style={styles.heroActionsRow}>
             <TouchableOpacity
               style={styles.primaryButton}
               activeOpacity={0.85}
-              onPress={() => handleOpenModal('donor')}>
-              <Text style={styles.primaryButtonText}>Donate surplus</Text>
+              onPress={() => router.push('/donor')}>
+              <Text style={styles.primaryButtonText}>Donate Surplus Food</Text>
               <ArrowRight size={16} color="#ffffff" />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.secondaryButton}
-              activeOpacity={0.7}
-              onPress={() => handleOpenModal('shelter')}>
-              <Text style={styles.secondaryButtonText}>Join Shelter Network</Text>
+              activeOpacity={0.8}
+              onPress={() => router.push('/shelter')}>
+              <Text style={styles.secondaryButtonText}>NGO & Shelter Portal</Text>
             </TouchableOpacity>
           </View>
 
@@ -337,11 +306,11 @@ export default function MobileFirstLandingPage() {
         {/* Ticker Banner */}
         <View style={styles.tickerBanner}>
           <Text style={styles.tickerText}>
-            EVERY RESCUE COUNTS · <Text style={styles.tickerHighlight}>23,841 KG</Text> KEPT IN USE THIS MONTH · ♥ BUILT BY NEIGHBORS
+            EVERY RESCUE COUNTS · <Text style={styles.tickerHighlight}>23,841 KG</Text> KEPT IN USE THIS MONTH
           </Text>
         </View>
 
-        {/* Problem Section */}
+        {/* Streamlined Problem & Impact Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.eyebrowBadge}>
             <Text style={styles.eyebrowText}>THE GAP IS REAL</Text>
@@ -349,9 +318,6 @@ export default function MobileFirstLandingPage() {
           <Text style={styles.sectionTitle}>
             There is enough food.{'\n'}
             <Text style={styles.heroTitleHighlight}>It just needs to move.</Text>
-          </Text>
-          <Text style={styles.sectionBody}>
-            Every day, perfectly good food leaves commercial kitchens while community shelters nearby go without. The problem isn’t willingness — it’s the missing real-time connection between surplus, timing, distance, and capacity.
           </Text>
 
           <View style={styles.statPillsRow}>
@@ -416,9 +382,6 @@ export default function MobileFirstLandingPage() {
             From surplus{'\n'}
             <Text style={styles.heroTitleHighlight}>to shared.</Text>
           </Text>
-          <Text style={styles.sectionBody}>
-            Not a static directory. A live mobile coordination layer for the exact moments when food needs somewhere to go — right now.
-          </Text>
 
           <View style={styles.stepsStack}>
             {steps.map((step) => {
@@ -437,178 +400,38 @@ export default function MobileFirstLandingPage() {
           </View>
         </View>
 
-        {/* Live Network Dark Section */}
-        <View style={styles.darkSection}>
-          <View style={styles.eyebrowBadgeLight}>
-            <View style={[styles.pulseDot, { backgroundColor: '#d7ee85' }]} />
-            <Text style={styles.eyebrowTextLight}>THE LIVE LAYER</Text>
-          </View>
-          <Text style={styles.darkSectionTitle}>
-            Timing changes{'\n'}
-            <Text style={{ color: '#d7ee85' }}>everything.</Text>
-          </Text>
-          <Text style={styles.darkSectionBody}>
-            Rescue sees what’s available, which shelters have storage, and who can get there — then connects everyone while food is fresh.
-          </Text>
-
-          {/* Live Map Card */}
-          <View style={styles.networkCardDark}>
-            <View style={styles.networkHeaderRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={[styles.pulseDot, { backgroundColor: '#91bc48' }]} />
-                <Text style={styles.networkStatusText}>Live network</Text>
-              </View>
-              <Text style={styles.networkTimeText}>Active Now</Text>
-            </View>
-
-            <View style={styles.mapGridBox}>
-              <View style={[styles.mapPin, { top: 20, left: 30, backgroundColor: '#df8960' }]}>
-                <Utensils size={12} color="#ffffff" />
-              </View>
-              <View style={[styles.mapPin, { top: 80, right: 40, backgroundColor: '#79a948' }]}>
-                <Bike size={12} color="#ffffff" />
-              </View>
-              <View style={[styles.mapPin, { bottom: 20, left: 70, backgroundColor: '#7b9fa0' }]}>
-                <HeartHandshake size={12} color="#ffffff" />
-              </View>
-              <View style={styles.mapCenterPin}>
-                <Route size={16} color="#d7ee85" />
-              </View>
-            </View>
-
-            <View style={styles.networkFooterRow}>
-              <View style={styles.netStatCol}>
-                <Text style={styles.netStatVal}>8</Text>
-                <Text style={styles.netStatSub}>Donors active</Text>
-              </View>
-              <View style={styles.netStatCol}>
-                <Text style={styles.netStatVal}>14</Text>
-                <Text style={styles.netStatSub}>Drivers nearby</Text>
-              </View>
-              <View style={styles.netStatCol}>
-                <Text style={styles.netStatVal}>6</Text>
-                <Text style={styles.netStatSub}>Shelters ready</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Roles Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.eyebrowBadge}>
-            <Text style={styles.eyebrowText}>THERE’S A PLACE FOR YOU HERE</Text>
-          </View>
-          <Text style={styles.sectionTitle}>
-            Many hands.{'\n'}
-            <Text style={styles.heroTitleHighlight}>One shared table.</Text>
-          </Text>
-
-          <View style={styles.rolesStack}>
-            {roles.map((role) => {
-              const IconComponent = role.icon;
-              const isLime = role.tone === 'lime';
-              return (
-                <View
-                  style={[styles.roleCard, isLime ? styles.roleCardLime : styles.roleCardCream]}
-                  key={role.title}>
-                  <View style={styles.roleIconBox}>
-                    <IconComponent size={22} color="#18352b" />
-                  </View>
-                  <Text style={styles.roleEyebrow}>{role.eyebrow}</Text>
-                  <Text style={styles.roleTitle}>{role.title}</Text>
-                  <Text style={styles.roleText}>{role.text}</Text>
-
-                  <TouchableOpacity
-                    style={styles.roleArrowLink}
-                    activeOpacity={0.8}
-                    onPress={() => handleOpenModal(role.type as any)}>
-                    <Text style={styles.roleLinkText}>{role.link}</Text>
-                    <ArrowRight size={15} color="#18352b" />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Impact Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.eyebrowBadge}>
-            <Text style={styles.eyebrowText}>SMALL ACTIONS, VISIBLE CHANGE</Text>
-          </View>
-          <Text style={styles.sectionTitle}>
-            The numbers{'\n'}
-            <Text style={styles.heroTitleHighlight}>tell the story.</Text>
-          </Text>
-
-          <View style={styles.impactGrid}>
-            <View style={styles.impactStatCard}>
-              <View style={[styles.impactIconBox, { backgroundColor: '#e5f0c5' }]}>
-                <PackageCheck size={18} color="#80a542" />
-              </View>
-              <Text style={styles.impactStatVal}>186,420</Text>
-              <Text style={styles.impactStatLabel}>kg food rescued</Text>
-            </View>
-
-            <View style={styles.impactStatCard}>
-              <View style={[styles.impactIconBox, { backgroundColor: '#f8decb' }]}>
-                <HeartHandshake size={18} color="#d87d51" />
-              </View>
-              <Text style={styles.impactStatVal}>421,800</Text>
-              <Text style={styles.impactStatLabel}>meals shared</Text>
-            </View>
-
-            <View style={styles.impactStatCard}>
-              <View style={[styles.impactIconBox, { backgroundColor: '#dcebe7' }]}>
-                <ShieldCheck size={18} color="#639486" />
-              </View>
-              <Text style={styles.impactStatVal}>9,240</Text>
-              <Text style={styles.impactStatLabel}>successful rescues</Text>
-            </View>
-
-            <View style={styles.impactStatCard}>
-              <View style={[styles.impactIconBox, { backgroundColor: '#e8dfef' }]}>
-                <Users size={18} color="#8a70a3" />
-              </View>
-              <Text style={styles.impactStatVal}>480+</Text>
-              <Text style={styles.impactStatLabel}>local partners</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Join CTA Box */}
-        <View style={styles.joinContainer}>
-          <View style={styles.joinCard}>
-            <Text style={styles.joinTitle}>
-              Let’s make sure{'\n'}
-              <Text style={{ color: '#18352b' }}>nothing good goes to waste.</Text>
-            </Text>
-            <Text style={styles.joinSub}>
-              Start with one rescue. We handle connections, real-time coordination, and tax logs.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              activeOpacity={0.85}
-              onPress={() => handleOpenModal('donor')}>
-              <Text style={styles.primaryButtonText}>Join the Rescue network</Text>
-              <ArrowRight size={16} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footerContainer}>
+        {/* Mobile Native App Hub Banner (Replacing Website Footer) */}
+        <View style={styles.appHubCard}>
           <View style={styles.brandRow}>
             <View style={styles.brandBadge}>
-              <Recycle size={15} color="#18352b" strokeWidth={2.6} />
+              <Recycle size={18} color="#18352b" strokeWidth={2.6} />
             </View>
             <Text style={styles.brandText}>
               rescue<Text style={styles.brandDot}>.</Text>
             </Text>
           </View>
-          <Text style={styles.footerTagline}>Food has a place. Find it.</Text>
-          <Text style={styles.footerCopy}>© 2026 FoodShelter Connect · Rescue Mobile App</Text>
+          <Text style={styles.appHubTitle}>FoodShelter Connect App</Text>
+          <Text style={styles.appHubSub}>
+            Real-time rescue coordination for kitchens, shelters, and volunteer drivers.
+          </Text>
+
+          <View style={styles.appHubActions}>
+            <TouchableOpacity
+              style={styles.appHubBtn}
+              activeOpacity={0.8}
+              onPress={() => router.push('/donor')}>
+              <PlusCircle size={16} color="#ffffff" />
+              <Text style={styles.appHubBtnText}>Food Donor Portal</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.appHubBtnSec}
+              activeOpacity={0.8}
+              onPress={() => router.push('/shelter')}>
+              <Building2 size={16} color="#18352b" />
+              <Text style={styles.appHubBtnSecText}>Shelter Portal</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
       </ScrollView>
@@ -624,13 +447,7 @@ export default function MobileFirstLandingPage() {
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Sparkles size={18} color="#93ad32" />
-                <Text style={styles.modalTitle}>
-                  {selectedRole === 'donor'
-                    ? 'Donate Food Surplus'
-                    : selectedRole === 'shelter'
-                    ? 'Register Shelter / NGO'
-                    : 'Become Volunteer Driver'}
-                </Text>
+                <Text style={styles.modalTitle}>Quick Access Request</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <X size={22} color="#18352b" />
@@ -642,9 +459,9 @@ export default function MobileFirstLandingPage() {
                 <View style={styles.successIconCircle}>
                   <Check size={26} color="#ffffff" />
                 </View>
-                <Text style={styles.successTitleText}>You’re on the list!</Text>
+                <Text style={styles.successTitleText}>Request Received!</Text>
                 <Text style={styles.successSubText}>
-                  Our local rescue team will contact <Text style={{ fontWeight: 'bold' }}>{contactEmail}</Text> within 2 hours.
+                  Our rescue team will contact <Text style={{ fontWeight: 'bold' }}>{contactEmail}</Text> shortly.
                 </Text>
                 <TouchableOpacity
                   style={styles.modalCloseButton}
@@ -654,19 +471,6 @@ export default function MobileFirstLandingPage() {
               </View>
             ) : (
               <View style={styles.modalFormStack}>
-                <Text style={styles.formInstructionText}>
-                  Submit your details to request immediate pickup or register your shelter.
-                </Text>
-
-                <Text style={styles.inputFieldLabel}>ORGANIZATION / FULL NAME</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Green Bakery or John Doe"
-                  placeholderTextColor="#909a93"
-                  value={orgName}
-                  onChangeText={setOrgName}
-                />
-
                 <Text style={styles.inputFieldLabel}>EMAIL ADDRESS</Text>
                 <TextInput
                   style={styles.formInput}
@@ -801,7 +605,7 @@ const styles = StyleSheet.create({
 
   /* Hero Section */
   heroSection: {
-    marginBottom: 40,
+    marginBottom: 36,
   },
   eyebrowBadge: {
     flexDirection: 'row',
@@ -822,26 +626,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   heroTitle: {
-    fontSize: IS_MOBILE ? 42 : 64,
+    fontSize: IS_MOBILE ? 40 : 60,
     fontWeight: '800',
     color: '#18352b',
-    lineHeight: IS_MOBILE ? 46 : 68,
-    letterSpacing: -2,
-    marginBottom: 16,
+    lineHeight: IS_MOBILE ? 44 : 64,
+    letterSpacing: -1.8,
+    marginBottom: 14,
   },
   heroTitleHighlight: {
     color: '#9fbd42',
   },
   heroSubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#6c7b73',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 22,
   },
   heroActionsRow: {
     flexDirection: IS_MOBILE ? 'column' : 'row',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   primaryButton: {
     backgroundColor: '#18352b',
@@ -877,7 +681,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   avatarStack: {
     flexDirection: 'row',
@@ -913,7 +717,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d5dec9',
     position: 'relative',
-    minHeight: 260,
+    minHeight: 250,
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
@@ -949,11 +753,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.8)',
-    shadowColor: '#18352b',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
   },
   flowIconBox: {
     width: 30,
@@ -991,7 +790,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 40,
+    marginBottom: 36,
   },
   tickerText: {
     color: '#c2cec0',
@@ -1008,27 +807,22 @@ const styles = StyleSheet.create({
 
   /* Section Common */
   sectionContainer: {
-    marginBottom: 48,
+    marginBottom: 40,
   },
   sectionTitle: {
-    fontSize: IS_MOBILE ? 34 : 48,
+    fontSize: IS_MOBILE ? 32 : 44,
     fontWeight: '800',
     color: '#18352b',
-    lineHeight: IS_MOBILE ? 38 : 52,
+    lineHeight: IS_MOBILE ? 36 : 48,
     letterSpacing: -1.5,
-    marginVertical: 12,
-  },
-  sectionBody: {
-    fontSize: 15,
-    color: '#687970',
-    lineHeight: 23,
-    marginBottom: 24,
+    marginVertical: 10,
   },
 
   /* Stat Pills */
   statPillsRow: {
     flexDirection: 'row',
     gap: 14,
+    marginTop: 10,
   },
   statPillCard: {
     flex: 1,
@@ -1111,11 +905,12 @@ const styles = StyleSheet.create({
 
   /* Steps Stack */
   stepsStack: {
-    gap: 16,
+    gap: 14,
+    marginTop: 10,
   },
   stepCard: {
     backgroundColor: '#f7f7f2',
-    padding: 22,
+    padding: 20,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#dce2d8',
@@ -1135,251 +930,75 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   stepTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#18352b',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stepDesc: {
     fontSize: 13,
     color: '#7e8b83',
-    lineHeight: 20,
+    lineHeight: 19,
   },
 
-  /* Dark Section */
-  darkSection: {
-    backgroundColor: '#18352b',
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 48,
-  },
-  eyebrowBadgeLight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  eyebrowTextLight: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#b9d18d',
-    letterSpacing: 1.2,
-  },
-  darkSectionTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#ffffff',
-    lineHeight: 38,
-    letterSpacing: -1,
-    marginBottom: 12,
-  },
-  darkSectionBody: {
-    fontSize: 14,
-    color: '#adbbb0',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  networkCardDark: {
-    backgroundColor: '#f6f7ef',
-    borderRadius: 20,
-    padding: 18,
-  },
-  networkHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  networkStatusText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-  networkTimeText: {
-    fontSize: 10,
-    color: '#87968c',
-  },
-  mapGridBox: {
-    height: 160,
-    backgroundColor: '#dfe8d8',
-    borderRadius: 14,
-    position: 'relative',
-    marginBottom: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapPin: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  mapCenterPin: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#18352b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  networkFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e6dc',
-    paddingTop: 12,
-  },
-  netStatCol: {
-    alignItems: 'center',
-  },
-  netStatVal: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-  netStatSub: {
-    fontSize: 10,
-    color: '#849087',
-    marginTop: 2,
-  },
-
-  /* Roles */
-  rolesStack: {
-    gap: 16,
-  },
-  roleCard: {
-    padding: 24,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-  },
-  roleCardLime: {
-    backgroundColor: '#d7ee85',
-  },
-  roleCardCream: {
+  /* App Hub Card (Replacing Website Footer) */
+  appHubCard: {
     backgroundColor: '#f7f7f2',
-  },
-  roleIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  roleEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#788b62',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  roleTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#18352b',
-    marginBottom: 8,
-    lineHeight: 24,
-  },
-  roleText: {
-    fontSize: 13,
-    color: '#687970',
-    lineHeight: 20,
-    marginBottom: 18,
-  },
-  roleArrowLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  roleLinkText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-
-  /* Impact */
-  impactGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  impactStatCard: {
-    width: (SCREEN_WIDTH - 52) / 2,
-    backgroundColor: '#f7f7f2',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-  },
-  impactIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  impactStatVal: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-  impactStatLabel: {
-    fontSize: 11,
-    color: '#849189',
-    marginTop: 2,
-  },
-
-  /* Join Box */
-  joinContainer: {
-    marginBottom: 48,
-  },
-  joinCard: {
-    backgroundColor: '#e2edbe',
     borderRadius: 26,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#d2e2aa',
+    borderColor: '#dce2d8',
+    marginTop: 10,
+    marginBottom: 20,
+    gap: 12,
   },
-  joinTitle: {
-    fontSize: 30,
+  appHubTitle: {
+    fontSize: 20,
     fontWeight: '800',
     color: '#18352b',
-    lineHeight: 34,
-    marginBottom: 10,
   },
-  joinSub: {
-    fontSize: 14,
-    color: '#586b53',
-    lineHeight: 21,
-    marginBottom: 20,
-  },
-
-  /* Footer */
-  footerContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#dce2d8',
-    paddingTop: 24,
-    paddingBottom: 20,
-    gap: 10,
-  },
-  footerTagline: {
+  appHubSub: {
     fontSize: 13,
-    color: '#687970',
-    fontWeight: '600',
+    color: '#6c7b73',
+    lineHeight: 19,
   },
-  footerCopy: {
-    fontSize: 11,
-    color: '#909a93',
+  appHubActions: {
+    flexDirection: IS_MOBILE ? 'column' : 'row',
+    gap: 10,
+    marginTop: 6,
+  },
+  appHubBtn: {
+    backgroundColor: '#18352b',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  appHubBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  appHubBtnSec: {
+    backgroundColor: '#d7ee85',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  appHubBtnSecText: {
+    color: '#18352b',
+    fontWeight: '800',
+    fontSize: 13,
   },
 
   /* Modal */
@@ -1410,12 +1029,6 @@ const styles = StyleSheet.create({
   },
   modalFormStack: {
     gap: 12,
-  },
-  formInstructionText: {
-    fontSize: 13,
-    color: '#6c7b73',
-    lineHeight: 19,
-    marginBottom: 6,
   },
   inputFieldLabel: {
     fontSize: 10,
