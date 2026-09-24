@@ -1,456 +1,71 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight,
-  ArrowUpRight,
-  Bike,
-  Building2,
-  Calculator,
-  Check,
-  HeartHandshake,
-  MapPin,
-  PackageCheck,
-  Recycle,
-  ShieldCheck,
-  Sparkles,
-  Truck,
-  Users,
-  Utensils,
-  X,
-  LayoutDashboard
+  ArrowRight, ArrowUpRight, Bike, Building2, Calculator, Check,
+  CheckCircle2, Clock3, HeartHandshake, MapPin, Menu, PackageCheck,
+  Recycle, ShieldCheck, Sparkles, Truck, Utensils, X,
 } from 'lucide-react';
 import './index.css';
 
-const steps = [
-  {
-    number: '01',
-    title: 'Post surplus',
-    text: 'Share what food is ready, quantity, and pickup window in under 60 seconds.',
-    icon: Utensils,
-    bgColor: '#e6f0c9',
-    iconColor: '#7ea441',
-  },
-  {
-    number: '02',
-    title: 'Get matched',
-    text: 'Algorithm pairs you with the nearest shelter or NGO with matching capacity.',
-    icon: MapPin,
-    bgColor: '#f9ddcb',
-    iconColor: '#d68154',
-  },
-  {
-    number: '03',
-    title: 'Coordinate pickup',
-    text: 'A verified local volunteer driver accepts the route with live GPS updates.',
-    icon: Truck,
-    bgColor: '#dcece9',
-    iconColor: '#5c9686',
-  },
-  {
-    number: '04',
-    title: 'Deliver impact',
-    text: 'Fresh food arrives safely. Every rescue is logged, certified, and tracked.',
-    icon: HeartHandshake,
-    bgColor: '#e6e0ef',
-    iconColor: '#8871a4',
-  },
-];
+type Role = 'donor' | 'shelter' | 'volunteer';
 
-const roles = [
-  {
-    icon: Utensils,
-    eyebrow: 'For food businesses',
-    title: 'Turn today’s extra into someone’s next meal.',
-    text: 'Post surplus in 60 seconds, set pickup windows, and get certified tax deduction logs.',
-    link: 'Start donating',
-    tone: '#eef6d4',
-    type: 'donor',
-  },
-  {
-    icon: Building2,
-    eyebrow: 'For shelters & orgs',
-    title: 'Bring fresh surplus directly to your community.',
-    text: 'Specify what capacity and storage you have. Get linked to nearby kitchens and bakeries.',
-    link: 'Join the network',
-    tone: '#f8f8f2',
-    type: 'shelter',
-  },
-  {
-    icon: Bike,
-    eyebrow: 'For volunteers',
-    title: 'Make one small 15-min trip matter.',
-    text: 'Accept rescue routes near your location, follow turn-by-turn directions, and see impact live.',
-    link: 'Rescue a route',
-    tone: '#f8f8f2',
-    type: 'volunteer',
-  },
-];
+const steps = [
+  ['01', 'Post surplus', 'Add the food, quantity, and pickup window in under 60 seconds.', Utensils],
+  ['02', 'Get matched', 'Nearby shelters surface the rescue that fits their capacity right now.', MapPin],
+  ['03', 'Coordinate pickup', 'A verified volunteer accepts the route and keeps everyone in sync.', Truck],
+  ['04', 'Deliver impact', 'Every meal arrives safely, with a clear record of the rescue.', HeartHandshake],
+] as const;
+
+const roleContent: Record<Role, { eyebrow: string; title: string; copy: string; button: string }> = {
+  donor: { eyebrow: 'FOOD DONOR PORTAL', title: "Turn tonight's extra into someone's next meal.", copy: 'Post cooked meals, bakery stock, or event surplus. Rescue handles the match and pickup coordination.', button: 'Post a donation' },
+  shelter: { eyebrow: 'SHELTER PORTAL', title: 'Bring fresh surplus straight to your residents.', copy: 'Share your capacity and dietary needs, then claim nearby food before its best-by window closes.', button: 'Request food' },
+  volunteer: { eyebrow: 'VOLUNTEER ROUTES', title: 'Make one small trip matter today.', copy: 'Pick up a verified route near you, follow the handoff, and see the impact land in real time.', button: 'See a route' },
+};
+
+function Brand({ onClick }: { onClick?: () => void }) {
+  return <button className="brand" onClick={onClick} aria-label="Rescue home"><span className="brand-mark"><Recycle size={18} strokeWidth={2.6} /></span><span>rescue<span className="brand-dot">.</span></span></button>;
+}
 
 function LandingPage() {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('donor');
-  const [formSubmitted, setFormSubmitted] = useState(false);
-
-  // Form states
-  const [orgName, setOrgName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  
-  // Calculator states
-  const [kgPerDay, setKgPerDay] = useState('25');
-  const numericKg = parseFloat(kgPerDay) || 0;
-  const estimatedMealsMonthly = Math.round(numericKg * 2.2 * 30);
-  const estimatedCo2Saved = Math.round(numericKg * 2.5 * 30);
-
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeRole, setActiveRole] = useState<Role>('donor');
+  const [modalRole, setModalRole] = useState<Role | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [kgPerDay, setKgPerDay] = useState('25');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const numericKg = Number(kgPerDay) || 0;
+  const meals = Math.round(numericKg * 2.2 * 30);
+  const co2 = Math.round(numericKg * 2.5 * 30);
+  const role = roleContent[activeRole];
+  const openModal = (nextRole: Role) => { setModalRole(nextRole); setSubmitted(false); setMenuOpen(false); };
+  const submitForm = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (email.trim()) setSubmitted(true); };
 
-  const handleOpenModal = (roleType = 'donor') => {
-    setSelectedRole(roleType);
-    setFormSubmitted(false);
-    setModalVisible(true);
-  };
-
-  const handleSubmitForm = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (contactEmail.trim()) {
-      setFormSubmitted(true);
-      setTimeout(() => {
-        setModalVisible(false);
-        navigate('/dashboard');
-      }, 1500);
-    }
-  };
-
-  return (
-    <div className="root-container">
-      {/* Navigation */}
-      <nav className="nav-bar">
-        <div className="brand-row">
-          <div className="brand-badge">
-            <Recycle size={18} color="#18352b" strokeWidth={2.6} />
-          </div>
-          <div className="brand-text">
-            rescue<span className="brand-dot">.</span>
-          </div>
-        </div>
-
-        <div className="desktop-nav-links">
-          <button className="nav-link" onClick={() => handleOpenModal('donor')}>How it works</button>
-          <button className="nav-link" onClick={() => handleOpenModal('donor')}>Calculator</button>
-          <button className="nav-link" onClick={() => handleOpenModal('donor')}>For Businesses</button>
-          <button className="nav-cta" onClick={() => handleOpenModal('donor')}>
-            Join Network <ArrowUpRight size={14} />
-          </button>
-        </div>
-      </nav>
-
-      <main>
-        {/* Hero Section */}
-        <section className="hero-section">
-          <div className="eyebrow-badge">
-            <div className="pulse-dot"></div>
-            <span>LIVE ACROSS YOUR CITY</span>
-          </div>
-
-          <h1 className="hero-title">
-            Good food.<br />
-            <span className="hero-title-highlight">Right place.</span><br />
-            Right now.
-          </h1>
-
-          <p className="hero-subtitle">
-            Rescue connects surplus food from local kitchens and markets directly with shelters and people in need — before the clock runs out.
-          </p>
-
-          <div className="hero-actions">
-            <button className="primary-button" onClick={() => handleOpenModal('donor')}>
-              Donate surplus <ArrowRight size={16} />
-            </button>
-            <button className="secondary-button" onClick={() => handleOpenModal('shelter')}>
-              Join Shelter Network
-            </button>
-          </div>
-        </section>
-
-        {/* Ticker Banner */}
-        <div className="ticker-banner">
-          EVERY RESCUE COUNTS · <span className="ticker-highlight">23,841 KG</span> KEPT IN USE THIS MONTH · ♥ BUILT BY NEIGHBORS
-        </div>
-
-        {/* Problem Section */}
-        <section className="section-container">
-          <div className="eyebrow-badge"><span>THE GAP IS REAL</span></div>
-          <h2 className="section-title">
-            There is enough food.<br />
-            <span className="hero-title-highlight">It just needs to move.</span>
-          </h2>
-          <p className="section-body">
-            Every day, perfectly good food leaves commercial kitchens while community shelters nearby go without. The problem isn’t willingness — it’s the missing real-time connection between surplus, timing, distance, and capacity.
-          </p>
-          <div className="stat-pills-row">
-            <div className="stat-pill">
-              <div className="stat-value">40%</div>
-              <div className="stat-label">of food is wasted</div>
-            </div>
-            <div className="stat-pill">
-              <div className="stat-value">1 in 8</div>
-              <div className="stat-label">face food insecurity</div>
-            </div>
-          </div>
-        </section>
-
-        {/* Calculator Section */}
-        <section className="section-container">
-          <div className="eyebrow-badge">
-            <Calculator size={14} style={{ marginRight: 6 }} />
-            <span>IMPACT ESTIMATOR</span>
-          </div>
-          <h2 className="section-title">
-            Calculate your<br />
-            <span className="hero-title-highlight">potential rescue.</span>
-          </h2>
-
-          <div className="calc-card">
-            <div className="calc-header">
-              <Utensils size={18} /> Daily Surplus Estimator
-            </div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#6c7b73', marginBottom: '0.5rem', display: 'block' }}>Average Daily Surplus (in KG)</label>
-            <input 
-              type="number" 
-              className="calc-input" 
-              value={kgPerDay} 
-              onChange={e => setKgPerDay(e.target.value)} 
-              placeholder="e.g. 25" 
-            />
-            <div className="calc-results">
-              <div className="calc-result-box">
-                <div className="calc-result-val">{estimatedMealsMonthly.toLocaleString()}</div>
-                <div className="calc-result-sub">MEALS / MONTH</div>
-              </div>
-              <div className="calc-result-box">
-                <div className="calc-result-val">{estimatedCo2Saved.toLocaleString()} kg</div>
-                <div className="calc-result-sub">CO₂ PREVENTED</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Steps Section */}
-        <section className="section-container">
-          <div className="eyebrow-badge"><span>THE RESCUE NETWORK</span></div>
-          <h2 className="section-title">
-            From surplus<br />
-            <span className="hero-title-highlight">to shared.</span>
-          </h2>
-          <p className="section-body">
-            Not a static directory. A live mobile coordination layer for the exact moments when food needs somewhere to go — right now.
-          </p>
-
-          <div className="steps-grid">
-            {steps.map(step => {
-              const Icon = step.icon;
-              return (
-                <div key={step.number} className="step-card">
-                  <div className="step-number">{step.number}</div>
-                  <div className="step-icon" style={{ background: step.bgColor }}>
-                    <Icon color={step.iconColor} size={20} />
-                  </div>
-                  <div className="step-title">{step.title}</div>
-                  <div className="step-desc">{step.text}</div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Roles Section */}
-        <section className="section-container">
-          <div className="eyebrow-badge"><span>THERE’S A PLACE FOR YOU HERE</span></div>
-          <h2 className="section-title">
-            Many hands.<br />
-            <span className="hero-title-highlight">One shared table.</span>
-          </h2>
-
-          <div className="roles-stack">
-            {roles.map(role => {
-              const Icon = role.icon;
-              return (
-                <div key={role.title} className="role-card" style={{ background: role.tone }}>
-                  <Icon size={24} color="#18352b" style={{ marginBottom: '1rem' }} />
-                  <div className="role-eyebrow">{role.eyebrow}</div>
-                  <div className="role-title">{role.title}</div>
-                  <div className="role-desc">{role.text}</div>
-                  <button onClick={() => handleOpenModal(role.type)} style={{ background: 'none', border: 'none', padding: 0, fontWeight: 'bold', color: '#18352b', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    {role.link} <ArrowRight size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Impact Section */}
-        <section className="section-container">
-          <div className="eyebrow-badge"><span>SMALL ACTIONS, VISIBLE CHANGE</span></div>
-          <h2 className="section-title">
-            The numbers<br />
-            <span className="hero-title-highlight">tell the story.</span>
-          </h2>
-
-          <div className="impact-grid">
-            <div className="impact-card">
-              <PackageCheck size={24} color="#80a542" style={{ marginBottom: '1rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>186,420</div>
-              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>kg food rescued</div>
-            </div>
-            <div className="impact-card">
-              <HeartHandshake size={24} color="#d87d51" style={{ marginBottom: '1rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>421,800</div>
-              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>meals shared</div>
-            </div>
-            <div className="impact-card">
-              <ShieldCheck size={24} color="#639486" style={{ marginBottom: '1rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>9,240</div>
-              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>successful rescues</div>
-            </div>
-            <div className="impact-card">
-              <Users size={24} color="#8a70a3" style={{ marginBottom: '1rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>480+</div>
-              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>local partners</div>
-            </div>
-          </div>
-        </section>
-
-        {/* Join CTA */}
-        <section className="section-container" style={{ padding: '2rem' }}>
-          <div className="join-card">
-            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0 0 1rem' }}>Let’s make sure nothing good goes to waste.</h2>
-            <p style={{ margin: '0 0 2rem' }}>Start with one rescue. We handle connections, real-time coordination, and tax logs.</p>
-            <button className="primary-button" onClick={() => handleOpenModal('donor')}>
-              Join the Rescue network <ArrowRight size={16} />
-            </button>
-          </div>
-        </section>
-      </main>
-
-      <footer className="footer">
-        © 2026 FoodShelter Connect · Rescue Web App
-      </footer>
-
-      {/* Modal */}
-      {modalVisible && (
-        <div className="modal-overlay" onClick={() => setModalVisible(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={18} color="#93ad32" />
-                <h3 style={{ margin: 0 }}>
-                  {selectedRole === 'donor'
-                    ? 'Donate Food Surplus'
-                    : selectedRole === 'shelter'
-                    ? 'Register Shelter / NGO'
-                    : 'Become Volunteer Driver'}
-                </h3>
-              </div>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModalVisible(false)}>
-                <X size={22} color="#18352b" />
-              </button>
-            </div>
-
-            {formSubmitted ? (
-              <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                <div style={{ background: '#18352b', width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                  <Check size={26} color="#ffffff" />
-                </div>
-                <h2>You're on the list!</h2>
-                <p>Redirecting you to the dashboard...</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmitForm}>
-                <p style={{ color: '#607169', marginBottom: '1.5rem' }}>Submit your details to request immediate pickup or register your shelter.</p>
-                
-                <div className="form-group">
-                  <label>ORGANIZATION / FULL NAME</label>
-                  <input type="text" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="e.g. Green Bakery or John Doe" />
-                </div>
-                
-                <div className="form-group">
-                  <label>EMAIL ADDRESS</label>
-                  <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@example.com" required />
-                </div>
-
-                <button type="submit" className="modal-submit">
-                  Submit Request
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="site-shell">
+    <header className="site-nav shell-width"><Brand /><nav className={menuOpen ? 'nav-links is-open' : 'nav-links'}><a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a><a href="#impact" onClick={() => setMenuOpen(false)}>Our impact</a><a href="#roles" onClick={() => setMenuOpen(false)}>For partners</a><button className="nav-cta" onClick={() => openModal('donor')}>Join the network <ArrowUpRight size={15} /></button></nav><button className="menu-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation">{menuOpen ? <X size={22} /> : <Menu size={22} />}</button></header>
+    <main>
+      <section className="hero shell-width"><div className="hero-copy reveal"><div className="eyebrow"><span className="pulse" /> LIVE ACROSS BENGALURU</div><h1>Good food.<br /><em>Right place.</em><br />Right now.</h1><p className="hero-text">Rescue connects surplus food from local kitchens with shelters and neighbors who need it, before the clock runs out.</p><div className="hero-actions"><button className="button button-primary" onClick={() => openModal('donor')}>Donate surplus <ArrowRight size={16} /></button><a className="text-link" href="#roles">Explore the network <span>↗</span></a></div><div className="trusted"><div className="avatar-stack"><span className="avatar av-one">M</span><span className="avatar av-two">J</span><span className="avatar av-three">S</span><span className="avatar av-four">+</span></div><span>Trusted by <strong>480+ local partners</strong></span></div></div>
+        <div className="flow-visual" aria-label="Live route from a kitchen to a shelter"><div className="flow-kicker"><span className="pulse" /> LIVE ROUTE · 07 MIN LEFT</div><svg className="flow-lines" viewBox="0 0 640 510" preserveAspectRatio="none" aria-hidden="true"><path className="flow-glow" d="M75 145 C190 85 230 290 360 235 S490 110 570 160" /><path className="flow-track" d="M75 145 C190 85 230 290 360 235 S490 110 570 160" /><path className="flow-track secondary-track" d="M95 380 C205 450 330 335 410 375 S510 425 590 350" /></svg><div className="flow-node flow-restaurant"><span className="flow-node-icon"><Utensils size={17} /></span><span><strong>Olive & Grain</strong><small>15 kg ready</small></span></div><div className="flow-node flow-driver"><span className="flow-node-icon"><Bike size={17} /></span><span><strong>Amara · en route</strong><small>Volunteer driver</small></span></div><div className="flow-node flow-ngo"><span className="flow-node-icon"><HeartHandshake size={17} /></span><span><strong>Harbor House</strong><small>Receiving now</small></span></div><span className="flow-annotation annotation-one">FRESH · VERIFIED · MOVING</span><span className="flow-annotation annotation-two">ONE CITY / MANY HANDS</span><div className="flow-status"><span className="pulse" /> COORDINATED IN REAL TIME</div></div>
+      </section>
+      <div className="ticker"><div className="ticker-inner shell-width"><span>EVERY RESCUE COUNTS</span><i /> <strong>23,841 KG</strong><span>KEPT IN USE THIS MONTH</span><span className="ticker-heart">♥</span><span>BUILT BY NEIGHBORS</span></div></div>
+      <section className="section-grid shell-width"><div className="section-intro"><div className="eyebrow">THE GAP IS REAL</div><h2>There is enough food.<br /><em>It just needs to move.</em></h2></div><div><p className="large-copy">Every day, perfectly good food leaves commercial kitchens while nearby shelters go without. The missing piece is a real-time connection between <strong>surplus, timing, distance, and capacity.</strong></p><div className="stat-pills"><div><strong>40%</strong><span>of food is wasted</span></div><div><strong>1 in 8</strong><span>face food insecurity</span></div></div></div></section>
+      <section className="solution shell-width" id="how-it-works"><div className="solution-heading"><div><div className="eyebrow">THE RESCUE NETWORK</div><h2>From surplus<br /><em>to shared.</em></h2></div><p>One simple loop for the exact moments when good food needs somewhere to go.</p></div><div className="steps">{steps.map(([number, title, text, Icon]) => <article className="step" key={number}><span className="step-number">{number}</span><span className="step-icon"><Icon size={20} /></span><h3>{title}</h3><p>{text}</p></article>)}</div></section>
+      <section className="live-section"><div className="live-wrap shell-width"><div className="live-copy"><div className="eyebrow light"><span className="pulse" /> THE NETWORK IS MOVING</div><h2>Good things<br /><em>in motion.</em></h2><p>Every listing is matched by distance, dietary fit, urgency, and verified capacity. No cold spreadsheets. No guesswork.</p><button className="button button-light" onClick={() => openModal('volunteer')}>See a live route <ArrowRight size={16} /></button></div><div className="network-card"><div className="network-header"><span><span className="status-dot green" /> ACTIVE RESCUES</span><span>BENGALURU · NOW</span></div><div className="map-grid"><span className="map-line line-a" /><span className="map-line line-b" /><span className="map-line line-c" /><span className="map-pin pin-a"><Utensils size={14} /></span><span className="map-pin pin-b"><Bike size={14} /></span><span className="map-pin pin-c"><HeartHandshake size={14} /></span><span className="map-center"><Recycle size={18} /></span></div><div className="network-footer"><div><strong>18</strong>active handoffs</div><div><strong>4.2 km</strong>average route</div><div><strong>96%</strong>on time</div></div></div></div></section>
+      <section className="roles shell-width" id="roles"><div className="center-heading"><div className="eyebrow">THERE IS A PLACE FOR YOU HERE</div><h2>Many hands.<br /><em>One shared table.</em></h2><p>Choose your way into the network. The first rescue can start in under a minute.</p></div><div className="role-grid">{(Object.keys(roleContent) as Role[]).map((key) => { const Icon = key === 'donor' ? Utensils : key === 'shelter' ? Building2 : Bike; return <button className={activeRole === key ? 'role-card active' : 'role-card'} key={key} onClick={() => { setActiveRole(key); if (key === 'volunteer') openModal(key); }}><span className="role-icon"><Icon size={22} /></span><span className="eyebrow">{roleContent[key].eyebrow}</span><h3>{roleContent[key].title}</h3><p>{roleContent[key].copy}</p><span className="arrow-link">{roleContent[key].button} <ArrowRight size={15} /></span></button>; })}</div><div className="role-detail"><div><div className="eyebrow">{role.eyebrow}</div><h3>{role.title}</h3><p>{role.copy}</p></div><button className="button button-primary" onClick={() => openModal(activeRole)}>{role.button} <ArrowRight size={16} /></button></div></section>
+      <section className="impact shell-width" id="impact"><div className="impact-heading"><div className="eyebrow">SMALL ACTIONS, VISIBLE CHANGE</div><h2>The numbers<br /><em>tell the story.</em></h2><p>A rescue is small to one person and enormous to the person receiving it.</p></div><div className="impact-stats"><div className="impact-stat"><span className="impact-icon"><PackageCheck size={18} /></span><strong>186,420</strong><span>kg food rescued</span></div><div className="impact-stat"><span className="impact-icon"><HeartHandshake size={18} /></span><strong>421,800</strong><span>meals shared</span></div><div className="impact-stat"><span className="impact-icon"><ShieldCheck size={18} /></span><strong>9,240</strong><span>successful rescues</span></div><div className="impact-stat"><span className="impact-icon"><Clock3 size={18} /></span><strong>480+</strong><span>local partners</span></div></div></section>
+      <section className="calculator shell-width"><div><div className="eyebrow"><Calculator size={13} /> IMPACT ESTIMATOR</div><h2>Make the<br /><em>math visible.</em></h2><p>Tell us what your kitchen could rescue on an average day.</p></div><div className="calc-card"><div className="calc-header"><Utensils size={18} /> Daily surplus estimator</div><label htmlFor="kg">AVERAGE DAILY SURPLUS (KG)</label><div className="calc-input-wrap"><input id="kg" type="number" min="0" value={kgPerDay} onChange={(event) => setKgPerDay(event.target.value)} /><span>kg / day</span></div><div className="calc-results"><div><strong>{meals.toLocaleString()}</strong><span>MEALS / MONTH</span></div><div><strong>{co2.toLocaleString()} kg</strong><span>CO2 PREVENTED</span></div></div><div className="calc-note"><CheckCircle2 size={15} /> Based on 2.2 meals and 2.5 kg CO2 saved per kg rescued.</div></div></section>
+      <section className="join shell-width"><div className="join-inner"><div><div className="eyebrow">START WITH ONE RESCUE</div><h2>Nothing good<br /><em>goes to waste.</em></h2></div><div className="join-side"><p>Join a practical, local network for kitchens, shelters, and volunteer drivers.</p><button className="button button-primary" onClick={() => openModal('donor')}>Join the rescue network <ArrowRight size={16} /></button><small>Free to join · verified partners only</small></div></div></section>
+    </main>
+    <footer className="footer shell-width"><Brand onClick={() => navigate('/')} /><span>© 2026 FoodShelter Connect</span><div><a href="#how-it-works">How it works</a><a href="#impact">Impact</a><a href="#roles">Partners</a></div></footer>
+    {modalRole && <div className="modal-overlay" onClick={() => setModalRole(null)}><div className="modal-card" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><div className="eyebrow"><Sparkles size={13} /> {roleContent[modalRole].eyebrow}</div><h3>{roleContent[modalRole].title}</h3></div><button className="icon-button" onClick={() => setModalRole(null)} aria-label="Close"><X size={20} /></button></div>{submitted ? <div className="modal-success"><span><Check size={25} /></span><h3>You are on the list.</h3><p>We will send the next step to {email}.</p><button className="button button-primary" onClick={() => navigate('/dashboard')}>Open your dashboard <ArrowRight size={15} /></button></div> : <form onSubmit={submitForm}><p className="modal-copy">{roleContent[modalRole].copy}</p><label htmlFor="name">NAME OR ORGANIZATION</label><input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Royal Spice Kitchen" /><label htmlFor="email">EMAIL ADDRESS</label><input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="hello@example.com" /><button className="modal-submit" type="submit">Request access <ArrowRight size={16} /></button></form>}</div></div>}
+  </div>;
 }
 
 function Dashboard() {
   const navigate = useNavigate();
-
-  return (
-    <div className="root-container">
-      <nav className="nav-bar">
-        <div className="brand-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
-          <div className="brand-badge">
-            <Recycle size={18} color="#18352b" strokeWidth={2.6} />
-          </div>
-          <div className="brand-text">
-            rescue<span className="brand-dot">.</span>
-          </div>
-        </div>
-        <div className="desktop-nav-links">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-            <LayoutDashboard size={18} /> Dashboard
-          </div>
-        </div>
-      </nav>
-
-      <main style={{ padding: '4rem 2rem', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>Welcome to your Dashboard</h1>
-        <p style={{ color: '#607169', marginBottom: '3rem', fontSize: '1.1rem' }}>Manage your food surplus donations and track your impact here.</p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-            <div style={{ background: '#d7ee85', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-              <Utensils size={20} color="#18352b" />
-            </div>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>New Donation</h3>
-            <p style={{ color: '#607169', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>Post a new food surplus batch to be rescued by nearby volunteers.</p>
-            <button className="primary-button" style={{ width: '100%', justifyContent: 'center' }}>
-              Create Listing <ArrowRight size={16} />
-            </button>
-          </div>
-
-          <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-            <div style={{ background: '#e6e0ef', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-              <Check size={20} color="#8871a4" />
-            </div>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>Your Impact</h3>
-            <p style={{ color: '#607169', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>See how many meals you've provided and your CO2 savings.</p>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-              <span style={{ fontSize: '2rem', fontWeight: 800 }}>120</span>
-              <span style={{ color: '#607169', paddingBottom: '0.4rem', fontWeight: 600 }}>meals shared</span>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
+  return <div className="dashboard"><header className="site-nav shell-width"><Brand onClick={() => navigate('/')} /><div className="dashboard-label"><span className="status-dot green" /> RESCUE CONTROL ROOM</div></header><main className="dashboard-main shell-width"><div className="dashboard-heading"><div><div className="eyebrow">GOOD AFTERNOON, ROYAL SPICE</div><h1>Your rescue board.</h1><p>One live donation. Two nearby shelters. Plenty of good still in motion.</p></div><button className="button button-primary" onClick={() => navigate('/')}>Back to overview <ArrowRight size={15} /></button></div><div className="dashboard-grid"><section className="dashboard-card live-donation"><div className="card-topline"><span className="status-chip"><span className="pulse" /> MATCHING NOW</span><span>POSTED 15 MIN AGO</span></div><h2>Veg biryani & 30 rotis</h2><p className="muted">Cooked meals · Serves ~30 people · 12 kg</p><div className="route-summary"><div><span className="route-badge orange"><Utensils size={16} /></span><strong>Royal Spice Kitchen</strong><small>Indiranagar · pickup ready</small></div><ArrowRight size={18} /><div><span className="route-badge teal"><Building2 size={16} /></span><strong>Harbor House Shelter</strong><small>1.8 km · needs dinner meals</small></div></div><div className="progress-track"><span /></div><div className="progress-labels"><span>Listing live</span><span>Volunteer matching</span><span>Delivered</span></div></section><section className="dashboard-card"><div className="card-topline"><span className="eyebrow">THIS MONTH</span><span className="trend">+18%</span></div><div className="big-stat">120 <small>meals shared</small></div><div className="mini-stats"><div><strong>48 kg</strong><span>food rescued</span></div><div><strong>3.2 kg</strong><span>CO2 prevented</span></div></div><button className="outline-button"><ShieldCheck size={15} /> Download impact log</button></section><section className="dashboard-card nearby"><div className="card-topline"><span className="eyebrow">NEARBY NEEDS</span><span>2 MATCHES</span></div><div className="need-row"><span className="route-badge lime"><HeartHandshake size={16} /></span><div><strong>Harbor House Shelter</strong><small>Needs 50 veg meals · by 7:30 PM</small></div><MapPin size={16} /></div><div className="need-row"><span className="route-badge purple"><Building2 size={16} /></span><div><strong>Sunrise Orphanage</strong><small>Needs snacks for 45 children</small></div><MapPin size={16} /></div></section></div></main></div>;
 }
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+export default function App() { return <BrowserRouter><RoutesFallback /></BrowserRouter>; }
+function RoutesFallback() { return window.location.pathname === '/dashboard' ? <Dashboard /> : <LandingPage />; }
