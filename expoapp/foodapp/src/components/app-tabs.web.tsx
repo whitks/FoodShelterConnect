@@ -21,8 +21,11 @@ export default function AppTabs() {
           <TabTrigger name="donor" href="/donor" asChild>
             <TabButton>Donate Food</TabButton>
           </TabTrigger>
+          <TabTrigger name="shelter" href="/shelter" asChild>
+            <TabButton>NGOs & Shelters</TabButton>
+          </TabTrigger>
           <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Shelters</TabButton>
+            <TabButton>Live Map</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -77,7 +80,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(24, 53, 43, 0.94)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
     ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)', boxShadow: '0 8px 24px rgba(24, 53, 43, 0.25)' } as any) : {}),
   },
   brandRow: {
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 7,
-    backgroundColor: '#FFA239',
+    backgroundColor: '#d7ee85',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -100,7 +103,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   dotText: {
-    color: '#FFA239',
+    color: '#9fbd42',
   },
   triggersRow: {
     flexDirection: 'row',
@@ -119,7 +122,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   tabButtonActive: {
-    backgroundColor: '#FFA239',
+    backgroundColor: '#d7ee85',
   },
   tabButtonText: {
     fontSize: 12,
@@ -127,6 +130,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   tabButtonTextActive: {
-    color: '#ffffff',
+    color: '#18352b',
   },
 });

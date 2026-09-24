@@ -6,9 +6,12 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronRight,
   Clock,
+  Compass,
   HeartHandshake,
   MapPin,
+  Navigation,
   Package,
   Plus,
   Recycle,
@@ -22,6 +25,7 @@ import {
   X,
 } from 'lucide-react-native';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   ScrollView,
@@ -32,16 +36,17 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 
 import { AppColors, AppRadius, AppShadows, AppSpacing } from '@/constants/theme';
 
-// Donor Type Options matching the minimal theme
+// 5 Main Donor Types
 const donorTypes = [
   {
     id: 'restaurant',
     label: 'Restaurant / Cafe',
     icon: Utensils,
-    desc: 'Bistros, fine dining, fast food, bakeries',
+    desc: 'Bistros, cafes, bakeries & fine dining',
     color: '#18352b',
     bgColor: '#e6f0c9',
   },
@@ -49,37 +54,37 @@ const donorTypes = [
     id: 'grocery',
     label: 'Grocery Shop',
     icon: Store,
-    desc: 'Supermarkets, produce stores, bakeries',
+    desc: 'Supermarkets, marts & produce stores',
     color: '#5c9686',
     bgColor: '#dcece9',
-  },
-  {
-    id: 'mess',
-    label: 'Mess / Hostel Kitchen',
-    icon: Building2,
-    desc: 'College mess, worker canteens, office pantries',
-    color: '#8871a4',
-    bgColor: '#e6e0ef',
-  },
-  {
-    id: 'catering',
-    label: 'Catering Service',
-    icon: Package,
-    desc: 'Event caterers, wedding halls, banquet kitchens',
-    color: '#dd835d',
-    bgColor: '#f9ddcb',
   },
   {
     id: 'individual',
     label: 'Normal Person / Individual',
     icon: User,
-    desc: 'Home cooks, family events, residential donors',
+    desc: 'Home cooks, family events, residents',
     color: '#7ea441',
     bgColor: '#e6f0c9',
   },
+  {
+    id: 'catering',
+    label: 'Catering Service',
+    icon: Package,
+    desc: 'Event caterers, banquet kitchens',
+    color: '#dd835d',
+    bgColor: '#f9ddcb',
+  },
+  {
+    id: 'mess',
+    label: 'Mess / Hostel Kitchen',
+    icon: Building2,
+    desc: 'College mess, worker canteens',
+    color: '#8871a4',
+    bgColor: '#e6e0ef',
+  },
 ];
 
-// Sample Preset Photos for demo camera capture
+// Preset Sample Photos
 const sampleFoodPhotos = [
   {
     id: 'photo1',
@@ -98,7 +103,7 @@ const sampleFoodPhotos = [
   },
 ];
 
-// Initial Mock Active Donations
+// Initial Active Donations List
 const initialActiveDonations = [
   {
     id: 'don_101',
@@ -114,49 +119,32 @@ const initialActiveDonations = [
     vegTag: 'Veg',
     postedAgo: '15 mins ago',
   },
-  {
-    id: 'don_100',
-    title: '25 Loaves Fresh Bread & Milk',
-    donorType: 'Grocery Shop',
-    category: 'Bakery & Dairy',
-    preparedAt: 'Baked today 9:00 AM',
-    quantity: '25 loaves + 10L milk packets',
-    shelfLife: 'Best within 24 hours',
-    address: 'Sharma Supermarket, M.G. Road',
-    status: 'assigned',
-    driverName: 'Amara (Volunteer)',
-    driverEta: '10 mins away',
-    photoUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80',
-    vegTag: 'Veg',
-    postedAgo: '1 hour ago',
-  },
 ];
 
 export default function FoodDonorScreen() {
   const insets = useSafeAreaInsets();
+  
+  // Navigation & Onboarding Control State
+  const [isOnboarded, setIsOnboarded] = useState(false); // First-time setup flag
+  const [onboardingStep, setOnboardingStep] = useState<1 | 2>(1); // Short 2-page onboarding
   const [activeTab, setActiveTab] = useState<'donate' | 'my_donations' | 'profile'>('donate');
 
-  // First-time Setup State
-  const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
-  const [setupStep, setSetupStep] = useState<1 | 2>(1);
+  // Onboarding & Profile Form State
+  const [donorName, setDonorName] = useState('Royal Spice Kitchen');
   const [selectedDonorType, setSelectedDonorType] = useState('restaurant');
-
-  // Donor Profile Data
-  const [donorProfile, setDonorProfile] = useState({
-    businessName: 'Royal Spice Kitchen',
-    contactPerson: 'Rahul Sharma',
-    phone: '+91 98765 43210',
-    address: '42 Commercial Street, Indiranagar',
-    city: 'Bengaluru',
-    pincode: '560038',
-    pickupWindow: 'Lunch (2 PM - 4 PM) & Dinner (9 PM - 11 PM)',
-    donorType: 'restaurant',
-  });
+  const [contactPerson, setContactPerson] = useState('Rahul Sharma');
+  const [contactPhone, setContactPhone] = useState('+91 98765 43210');
+  
+  // Location & Address State
+  const [streetAddress, setStreetAddress] = useState('42 Commercial Street, Indiranagar');
+  const [city, setCity] = useState('Bengaluru');
+  const [pincode, setPincode] = useState('560038');
+  const [pickupWindow, setPickupWindow] = useState('Lunch (2-4 PM) & Dinner (8-10 PM)');
+  const [isLocating, setIsLocating] = useState(false);
+  const [gpsCoordinates, setGpsCoordinates] = useState<string | null>(null);
 
   // Food Donation Form State
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(
-    sampleFoodPhotos[0].url
-  );
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(sampleFoodPhotos[0].url);
   const [foodTitle, setFoodTitle] = useState('');
   const [foodCategory, setFoodCategory] = useState('Cooked Meals');
   const [preparedAt, setPreparedAt] = useState('Today at 2:00 PM (1 hr ago)');
@@ -164,19 +152,62 @@ export default function FoodDonorScreen() {
   const [shelfLife, setShelfLife] = useState('Best within 4 hours (by 7:00 PM)');
   const [vegTag, setVegTag] = useState<'Veg' | 'Non-Veg' | 'Egg'>('Veg');
   const [packagingType, setPackagingType] = useState('Self-packed in disposable containers');
-  const [specialInstructions, setSpecialInstructions] = useState('Keep warm until pickup. Separate curry containers.');
+  const [specialInstructions, setSpecialInstructions] = useState('Keep warm until pickup. Rear kitchen entrance.');
 
-  // Active Donations
+  // Active Listings State
   const [donationsList, setDonationsList] = useState(initialActiveDonations);
   const [postSuccessModal, setPostSuccessModal] = useState(false);
 
-  // Handle Profile Setup Submit
-  const handleCompleteSetup = () => {
-    setIsFirstTimeSetup(false);
+  // Live Location Detection Handler
+  const handleDetectLiveLocation = async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        // Fallback for demo/web if permission denied
+        setGpsCoordinates('12.9716° N, 77.5946° E');
+        setStreetAddress('Indiranagar 100ft Road');
+        setCity('Bengaluru');
+        setPincode('560038');
+        setIsLocating(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const lat = location.coords.latitude.toFixed(4);
+      const lng = location.coords.longitude.toFixed(4);
+      setGpsCoordinates(`${lat}° N, ${lng}° E`);
+
+      const [reverseGeocode] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (reverseGeocode) {
+        if (reverseGeocode.street || reverseGeocode.name) {
+          setStreetAddress(`${reverseGeocode.name || ''} ${reverseGeocode.street || ''}`.trim());
+        }
+        if (reverseGeocode.city) setCity(reverseGeocode.city);
+        if (reverseGeocode.postalCode) setPincode(reverseGeocode.postalCode);
+      }
+    } catch (err) {
+      // Graceful fallback
+      setGpsCoordinates('12.9716° N, 77.5946° E');
+      setStreetAddress('42 Commercial Street, Indiranagar');
+      setCity('Bengaluru');
+      setPincode('560038');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  // Complete Onboarding & Open Donate Section
+  const handleFinishOnboarding = () => {
+    setIsOnboarded(true);
     setActiveTab('donate');
   };
 
-  // Handle Post Surplus Submit
+  // Submit New Food Donation
   const handlePostDonation = () => {
     if (!foodTitle.trim()) {
       alert('Please enter the food item title.');
@@ -186,13 +217,12 @@ export default function FoodDonorScreen() {
     const newDonation = {
       id: `don_${Date.now()}`,
       title: foodTitle,
-      donorType:
-        donorTypes.find((t) => t.id === donorProfile.donorType)?.label || 'Donor',
+      donorType: donorTypes.find((t) => t.id === selectedDonorType)?.label || 'Donor',
       category: foodCategory,
       preparedAt: preparedAt || 'Just now',
       quantity: quantity || 'Serves 20 people',
       shelfLife: shelfLife || 'Consume within 4 hours',
-      address: `${donorProfile.address}, ${donorProfile.city}`,
+      address: `${streetAddress}, ${city}`,
       status: 'matching',
       photoUrl: selectedPhoto || sampleFoodPhotos[0].url,
       vegTag: vegTag,
@@ -201,8 +231,6 @@ export default function FoodDonorScreen() {
 
     setDonationsList([newDonation, ...donationsList]);
     setPostSuccessModal(true);
-
-    // Reset Form
     setFoodTitle('');
   };
 
@@ -229,62 +257,65 @@ export default function FoodDonorScreen() {
               <Text style={styles.headerSubtitle}>Food Donor Hub</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.profileChip}
-              onPress={() => setIsFirstTimeSetup(true)}>
-              <Building2 size={13} color="#18352b" />
-              <Text style={styles.profileChipText}>
-                {donorTypes.find((t) => t.id === donorProfile.donorType)?.label.split(' ')[0] || 'Profile'}
-              </Text>
-            </TouchableOpacity>
+            {isOnboarded && (
+              <TouchableOpacity
+                style={styles.profileChip}
+                onPress={() => {
+                  setIsOnboarded(false);
+                  setOnboardingStep(1);
+                }}>
+                <Building2 size={13} color="#18352b" />
+                <Text style={styles.profileChipText}>Edit Setup</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Tab Switcher Pills (Minimal Theme) */}
-        <View style={styles.tabPillsRow}>
-          <TouchableOpacity
-            style={[styles.tabPill, activeTab === 'donate' && styles.tabPillActive]}
-            onPress={() => setActiveTab('donate')}>
-            <Plus size={15} color={activeTab === 'donate' ? '#ffffff' : AppColors.textSecondary} />
-            <Text style={[styles.tabPillText, activeTab === 'donate' && styles.tabPillTextActive]}>
-              Donate Food
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabPill, activeTab === 'my_donations' && styles.tabPillActive]}
-            onPress={() => setActiveTab('my_donations')}>
-            <Clock size={15} color={activeTab === 'my_donations' ? '#ffffff' : AppColors.textSecondary} />
-            <Text style={[styles.tabPillText, activeTab === 'my_donations' && styles.tabPillTextActive]}>
-              Active ({donationsList.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabPill, activeTab === 'profile' && styles.tabPillActive]}
-            onPress={() => setActiveTab('profile')}>
-            <User size={15} color={activeTab === 'profile' ? '#ffffff' : AppColors.textSecondary} />
-            <Text style={[styles.tabPillText, activeTab === 'profile' && styles.tabPillTextActive]}>
-              Donor Setup
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* FIRST-TIME SETUP BANNER */}
-        {isFirstTimeSetup && (
-          <View style={styles.setupCard}>
-            <View style={styles.setupHeader}>
-              <Sparkles size={20} color="#9fbd42" />
-              <Text style={styles.setupTitle}>First-Time Donor Setup</Text>
+        {/* SHORT 2-PAGE ONBOARDING WORKFLOW (If not onboarded) */}
+        {!isOnboarded ? (
+          <View style={styles.onboardingWrapper}>
+            
+            {/* Step Progress Bar */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeaderRow}>
+                <Text style={styles.progressStepText}>
+                  ONBOARDING STEP {onboardingStep} OF 2
+                </Text>
+                <Text style={styles.progressPercentText}>
+                  {onboardingStep === 1 ? '50%' : '100%'}
+                </Text>
+              </View>
+              <View style={styles.trackBar}>
+                <View
+                  style={[
+                    styles.fillBar,
+                    { width: onboardingStep === 1 ? '50%' : '100%' },
+                  ]}
+                />
+              </View>
             </View>
-            <Text style={styles.setupSub}>
-              Set up your donor type and pickup location once so shelters and drivers can locate your surplus quickly.
-            </Text>
 
-            {/* Step 1: Donor Type Selection */}
-            {setupStep === 1 && (
-              <View style={styles.stepBlock}>
-                <Text style={styles.stepTitle}>1. Select Your Food Donor Type</Text>
+            {/* PAGE 1 OF ONBOARDING: Name & Type of Donor */}
+            {onboardingStep === 1 && (
+              <View style={styles.onboardingCard}>
+                <View style={styles.cardHeroHeader}>
+                  <Sparkles size={22} color="#9fbd42" />
+                  <Text style={styles.onboardingHeroTitle}>Welcome to Rescue</Text>
+                </View>
+                <Text style={styles.onboardingHeroSub}>
+                  Set up your food donor profile in under 60 seconds to start sharing surplus food with local shelters.
+                </Text>
+
+                <Text style={styles.inputLabel}>SHOP / DONOR NAME *</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={donorName}
+                  onChangeText={setDonorName}
+                  placeholder="e.g. Royal Spice Bistro or Sharma Bakery"
+                  placeholderTextColor={AppColors.textMuted}
+                />
+
+                <Text style={styles.inputLabel}>SELECT YOUR DONOR TYPE *</Text>
                 <View style={styles.donorTypeGrid}>
                   {donorTypes.map((type) => {
                     const TypeIcon = type.icon;
@@ -294,7 +325,7 @@ export default function FoodDonorScreen() {
                         key={type.id}
                         style={[
                           styles.donorTypeCard,
-                          isSelected && { borderColor: '#18352b', backgroundColor: '#e7eddc' },
+                          isSelected && styles.donorTypeCardActive,
                         ]}
                         onPress={() => setSelectedDonorType(type.id)}>
                         <View style={[styles.donorTypeIcon, { backgroundColor: type.bgColor }]}>
@@ -310,390 +341,434 @@ export default function FoodDonorScreen() {
                   })}
                 </View>
 
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>CONTACT PERSON</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={contactPerson}
+                      onChangeText={setContactPerson}
+                      placeholder="e.g. Rahul Sharma"
+                      placeholderTextColor={AppColors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>PHONE NUMBER</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={contactPhone}
+                      onChangeText={setContactPhone}
+                      placeholder="+91 98765 43210"
+                      keyboardType="phone-pad"
+                      placeholderTextColor={AppColors.textMuted}
+                    />
+                  </View>
+                </View>
+
                 <TouchableOpacity
                   style={styles.primaryBtn}
-                  onPress={() => {
-                    setDonorProfile({ ...donorProfile, donorType: selectedDonorType });
-                    setSetupStep(2);
-                  }}>
-                  <Text style={styles.primaryBtnText}>Continue to Address & Details</Text>
+                  activeOpacity={0.85}
+                  onPress={() => setOnboardingStep(2)}>
+                  <Text style={styles.primaryBtnText}>Next: Location & Pickup Address</Text>
                   <ArrowRight size={16} color="#ffffff" />
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Step 2: Address & Business Info */}
-            {setupStep === 2 && (
-              <View style={styles.stepBlock}>
-                <Text style={styles.stepTitle}>2. Enter Pickup Address & Details</Text>
+            {/* PAGE 2 OF ONBOARDING: Live Location & Address */}
+            {onboardingStep === 2 && (
+              <View style={styles.onboardingCard}>
+                <View style={styles.cardHeroHeader}>
+                  <MapPin size={22} color="#18352b" />
+                  <Text style={styles.onboardingHeroTitle}>Pickup Location Setup</Text>
+                </View>
+                <Text style={styles.onboardingHeroSub}>
+                  Share your location so verified drivers and shelters can locate your pickup point seamlessly.
+                </Text>
 
-                <Text style={styles.inputLabel}>BUSINESS / DONOR NAME</Text>
+                {/* Live GPS Location Detector Button */}
+                <TouchableOpacity
+                  style={styles.detectGpsBtn}
+                  activeOpacity={0.8}
+                  onPress={handleDetectLiveLocation}
+                  disabled={isLocating}>
+                  {isLocating ? (
+                    <ActivityIndicator color="#18352b" size="small" />
+                  ) : (
+                    <Navigation size={18} color="#18352b" />
+                  )}
+                  <Text style={styles.detectGpsBtnText}>
+                    {isLocating ? 'Detecting Live GPS...' : '📍 Detect My Live GPS Location'}
+                  </Text>
+                </TouchableOpacity>
+
+                {gpsCoordinates && (
+                  <View style={styles.gpsFixedBadge}>
+                    <Compass size={14} color="#7ea441" />
+                    <Text style={styles.gpsFixedText}>
+                      GPS Coordinates Locked: <Text style={{ fontWeight: '800' }}>{gpsCoordinates}</Text>
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={styles.inputLabel}>STREET ADDRESS & LANDMARK *</Text>
                 <TextInput
                   style={styles.inputField}
-                  value={donorProfile.businessName}
-                  onChangeText={(txt) => setDonorProfile({ ...donorProfile, businessName: txt })}
-                  placeholder="e.g. Royal Spice Restaurant or Sharma Mess"
-                  placeholderTextColor={AppColors.textMuted}
-                />
-
-                <Text style={styles.inputLabel}>CONTACT PERSON & PHONE</Text>
-                <TextInput
-                  style={styles.inputField}
-                  value={donorProfile.phone}
-                  onChangeText={(txt) => setDonorProfile({ ...donorProfile, phone: txt })}
-                  placeholder="+91 98765 43210"
-                  placeholderTextColor={AppColors.textMuted}
-                  keyboardType="phone-pad"
-                />
-
-                <Text style={styles.inputLabel}>STREET / BUILDING ADDRESS</Text>
-                <TextInput
-                  style={styles.inputField}
-                  value={donorProfile.address}
-                  onChangeText={(txt) => setDonorProfile({ ...donorProfile, address: txt })}
-                  placeholder="Street, Landmark, Building No."
+                  value={streetAddress}
+                  onChangeText={setStreetAddress}
+                  placeholder="e.g. 42 Commercial Street, Next to City Bank"
                   placeholderTextColor={AppColors.textMuted}
                 />
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>CITY</Text>
+                    <Text style={styles.inputLabel}>CITY *</Text>
                     <TextInput
                       style={styles.inputField}
-                      value={donorProfile.city}
-                      onChangeText={(txt) => setDonorProfile({ ...donorProfile, city: txt })}
+                      value={city}
+                      onChangeText={setCity}
+                      placeholder="Bengaluru"
+                      placeholderTextColor={AppColors.textMuted}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>PINCODE</Text>
+                    <Text style={styles.inputLabel}>PINCODE *</Text>
                     <TextInput
                       style={styles.inputField}
-                      value={donorProfile.pincode}
-                      onChangeText={(txt) => setDonorProfile({ ...donorProfile, pincode: txt })}
+                      value={pincode}
+                      onChangeText={setPincode}
+                      placeholder="560038"
                       keyboardType="numeric"
+                      placeholderTextColor={AppColors.textMuted}
                     />
                   </View>
                 </View>
 
-                <Text style={styles.inputLabel}>PREFERRED PICKUP WINDOW</Text>
+                <Text style={styles.inputLabel}>PREFERRED DAILY PICKUP WINDOW</Text>
                 <TextInput
                   style={styles.inputField}
-                  value={donorProfile.pickupWindow}
-                  onChangeText={(txt) => setDonorProfile({ ...donorProfile, pickupWindow: txt })}
-                  placeholder="e.g. Lunch 2-4 PM & Dinner 9-11 PM"
+                  value={pickupWindow}
+                  onChangeText={setPickupWindow}
+                  placeholder="e.g. Lunch (2-4 PM) & Dinner (8-10 PM)"
                   placeholderTextColor={AppColors.textMuted}
                 />
 
-                <TouchableOpacity style={styles.primaryBtn} onPress={handleCompleteSetup}>
-                  <Text style={styles.primaryBtnText}>Save Profile & Start Donating</Text>
-                  <Check size={16} color="#ffffff" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={styles.backBtn}
+                    onPress={() => setOnboardingStep(1)}>
+                    <Text style={styles.backBtnText}>Back</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, { flex: 2 }]}
+                    activeOpacity={0.85}
+                    onPress={handleFinishOnboarding}>
+                    <Text style={styles.primaryBtnText}>Complete Setup & Donate</Text>
+                    <Check size={16} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
+
           </View>
-        )}
-
-        {/* TAB 1: DONATE FOOD FORM */}
-        {activeTab === 'donate' && !isFirstTimeSetup && (
-          <View style={styles.cardContainer}>
-            {/* Header banner */}
-            <View style={styles.formHeaderCard}>
-              <View style={styles.badgePill}>
-                <Sparkles size={13} color="#18352b" />
-                <Text style={styles.badgePillText}>POST SURPLUS FOOD</Text>
+        ) : (
+          /* UNLOCKED MAIN FOOD DONATION SECTION */
+          <View>
+            
+            {/* Active Donor Profile Summary Bar */}
+            <View style={styles.activeProfileBar}>
+              <View style={styles.activeDot} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activeProfileName}>
+                  {donorName} <Text style={styles.activeProfileBadge}>({donorTypes.find((t) => t.id === selectedDonorType)?.label})</Text>
+                </Text>
+                <Text style={styles.activeProfileLoc} numberOfLines={1}>
+                  📍 {streetAddress}, {city}
+                </Text>
               </View>
-              <Text style={styles.formTitle}>What food are you donating today?</Text>
-              <Text style={styles.formSub}>
-                Posting for <Text style={{ fontWeight: '700', color: '#18352b' }}>{donorProfile.businessName}</Text> ({donorTypes.find((t) => t.id === donorProfile.donorType)?.label})
-              </Text>
-            </View>
-
-            {/* 1. PHOTO SECTION */}
-            <View style={styles.sectionBox}>
-              <View style={styles.sectionHeaderRow}>
-                <Camera size={18} color="#18352b" />
-                <Text style={styles.sectionBoxTitle}>1. Food Photo Section</Text>
-              </View>
-              <Text style={styles.sectionBoxDesc}>
-                Take or upload a clear photo of the prepared food so shelters can inspect quality.
-              </Text>
-
-              {selectedPhoto ? (
-                <View style={styles.photoPreviewCard}>
-                  <Image source={{ uri: selectedPhoto }} style={styles.photoImage} />
-                  <View style={styles.photoOverlayBar}>
-                    <TouchableOpacity
-                      style={styles.photoActionBtn}
-                      onPress={() => setSelectedPhoto(null)}>
-                      <Trash2 size={14} color="#ffffff" />
-                      <Text style={styles.photoActionText}>Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.photoUploadPlaceholder}>
-                  <Camera size={32} color={AppColors.textMuted} />
-                  <Text style={styles.uploadMainText}>Tap to Capture Food Photo</Text>
-                  <Text style={styles.uploadSubText}>Take photo via camera or select from gallery</Text>
-                </View>
-              )}
-
-              {/* Sample Quick Preset Photos Selector */}
-              <Text style={styles.presetLabel}>Or select quick sample photo:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
-                {sampleFoodPhotos.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.presetThumbBox,
-                      selectedPhoto === item.url && { borderColor: '#18352b', borderWidth: 2 },
-                    ]}
-                    onPress={() => setSelectedPhoto(item.url)}>
-                    <Image source={{ uri: item.url }} style={styles.presetThumb} />
-                    <Text style={styles.presetThumbTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* 2. FOOD DETAILS & CATEGORY */}
-            <View style={styles.sectionBox}>
-              <View style={styles.sectionHeaderRow}>
-                <Utensils size={18} color="#18352b" />
-                <Text style={styles.sectionBoxTitle}>2. Food Item Details</Text>
-              </View>
-
-              <Text style={styles.inputLabel}>FOOD ITEM TITLE / MENU DESCRIPTION *</Text>
-              <TextInput
-                style={styles.inputField}
-                value={foodTitle}
-                onChangeText={setFoodTitle}
-                placeholder="e.g. Mixed Veg Curry, Dal Makhani & 40 Rotis"
-                placeholderTextColor={AppColors.textMuted}
-              />
-
-              <Text style={styles.inputLabel}>FOOD CATEGORY</Text>
-              <View style={styles.categoryChipsRow}>
-                {['Cooked Meals', 'Raw Produce', 'Bakery & Bread', 'Packaged Snacks', 'Dairy & Drinks'].map(
-                  (cat) => (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[
-                        styles.chipBtn,
-                        foodCategory === cat && styles.chipBtnActive,
-                      ]}
-                      onPress={() => setFoodCategory(cat)}>
-                      <Text
-                        style={[
-                          styles.chipText,
-                          foodCategory === cat && styles.chipTextActive,
-                        ]}>
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  )
-                )}
-              </View>
-
-              <Text style={styles.inputLabel}>DIETARY TAG</Text>
-              <View style={styles.dietRow}>
-                {(['Veg', 'Non-Veg', 'Egg'] as const).map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[
-                      styles.dietChip,
-                      vegTag === tag && styles.dietChipActive,
-                      tag === 'Veg' && { backgroundColor: '#e6f0c9' },
-                      tag === 'Non-Veg' && { backgroundColor: '#f9ddcb' },
-                    ]}
-                    onPress={() => setVegTag(tag)}>
-                    <Text style={[styles.dietChipText, vegTag === tag && { fontWeight: '800' }]}>
-                      {tag === 'Veg' ? '🌱 Pure Veg' : tag === 'Non-Veg' ? '🍖 Non-Veg' : '🥚 Contains Egg'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* 3. TIMINGS, QUANTITY & SHELF LIFE */}
-            <View style={styles.sectionBox}>
-              <View style={styles.sectionHeaderRow}>
-                <Clock size={18} color="#18352b" />
-                <Text style={styles.sectionBoxTitle}>3. Freshness & Shelf Life</Text>
-              </View>
-
-              <Text style={styles.inputLabel}>WHEN WAS THE FOOD PREPARED? *</Text>
-              <TextInput
-                style={styles.inputField}
-                value={preparedAt}
-                onChangeText={setPreparedAt}
-                placeholder="e.g. Today at 1:30 PM (1 hr ago)"
-                placeholderTextColor={AppColors.textMuted}
-              />
-
-              <Text style={styles.inputLabel}>APPROXIMATE QUANTITY *</Text>
-              <TextInput
-                style={styles.inputField}
-                value={quantity}
-                onChangeText={setQuantity}
-                placeholder="e.g. Serves ~30 people or 15 KG"
-                placeholderTextColor={AppColors.textMuted}
-              />
-
-              <Text style={styles.inputLabel}>SHELF LIFE / BEST BEFORE (BY DONOR) *</Text>
-              <TextInput
-                style={styles.inputField}
-                value={shelfLife}
-                onChangeText={setShelfLife}
-                placeholder="e.g. Best within 4 hours (consume by 8:00 PM)"
-                placeholderTextColor={AppColors.textMuted}
-              />
-
-              <Text style={styles.inputLabel}>CONTAINERS / PACKAGING</Text>
-              <TextInput
-                style={styles.inputField}
-                value={packagingType}
-                onChangeText={setPackagingType}
-                placeholder="e.g. Packed in disposable foil trays"
-                placeholderTextColor={AppColors.textMuted}
-              />
-
-              <Text style={styles.inputLabel}>SPECIAL PICKUP INSTRUCTIONS</Text>
-              <TextInput
-                style={[styles.inputField, { height: 70 }]}
-                value={specialInstructions}
-                onChangeText={setSpecialInstructions}
-                multiline
-                placeholder="e.g. Pickup from rear kitchen entrance. Contact Manager Ramesh."
-                placeholderTextColor={AppColors.textMuted}
-              />
-            </View>
-
-            {/* SUBMIT BUTTON */}
-            <TouchableOpacity
-              style={styles.postSubmitBtn}
-              activeOpacity={0.85}
-              onPress={handlePostDonation}>
-              <Text style={styles.postSubmitBtnText}>Publish Surplus Food Donation</Text>
-              <ArrowRight size={18} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* TAB 2: MY ACTIVE DONATIONS LIST */}
-        {activeTab === 'my_donations' && (
-          <View style={styles.cardContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Clock size={20} color="#18352b" />
-              <Text style={styles.formTitle}>Active Food Donations</Text>
-            </View>
-            <Text style={styles.formSub}>Real-time matching status for posted food surplus.</Text>
-
-            {donationsList.map((item) => (
-              <View key={item.id} style={styles.donationCard}>
-                <View style={styles.donationTopRow}>
-                  <Image source={{ uri: item.photoUrl }} style={styles.donationThumb} />
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.tagRow}>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryBadgeText}>{item.category}</Text>
-                      </View>
-                      <View style={styles.vegBadge}>
-                        <Text style={styles.vegBadgeText}>{item.vegTag}</Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.donationItemTitle}>{item.title}</Text>
-                    <Text style={styles.donationSubText}>{item.quantity}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.donationDetailsBox}>
-                  <View style={styles.detailRow}>
-                    <Clock size={14} color={AppColors.textSecondary} />
-                    <Text style={styles.detailText}>
-                      <Text style={{ fontWeight: '700' }}>Prepared:</Text> {item.preparedAt}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <ShieldCheck size={14} color="#9fbd42" />
-                    <Text style={styles.detailText}>
-                      <Text style={{ fontWeight: '700' }}>Shelf Life:</Text> {item.shelfLife}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <MapPin size={14} color={AppColors.textSecondary} />
-                    <Text style={styles.detailText} numberOfLines={1}>
-                      {item.address}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Status Bar */}
-                <View style={styles.statusFooter}>
-                  {item.status === 'matching' ? (
-                    <View style={styles.statusPillYellow}>
-                      <RefreshCw size={14} color="#dd835d" />
-                      <Text style={styles.statusPillYellowText}>
-                        Searching Nearest Shelter (Algorithm Active)...
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.statusPillGreen}>
-                      <Bike size={14} color="#7da750" />
-                      <Text style={styles.statusPillGreenText}>
-                        Driver Assigned: {item.driverName} ({item.driverEta})
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* TAB 3: PROFILE & DONOR SETUP */}
-        {activeTab === 'profile' && (
-          <View style={styles.cardContainer}>
-            <View style={styles.formHeaderCard}>
-              <Building2 size={24} color="#18352b" />
-              <Text style={styles.formTitle}>Food Donor Profile</Text>
-              <Text style={styles.formSub}>Manage your donor type, pickup address, and tax records.</Text>
-            </View>
-
-            <View style={styles.sectionBox}>
-              <Text style={styles.inputLabel}>DONOR TYPE</Text>
-              <Text style={styles.profileValText}>
-                {donorTypes.find((t) => t.id === donorProfile.donorType)?.label}
-              </Text>
-
-              <Text style={styles.inputLabel}>BUSINESS / KITCHEN NAME</Text>
-              <Text style={styles.profileValText}>{donorProfile.businessName}</Text>
-
-              <Text style={styles.inputLabel}>CONTACT PHONE</Text>
-              <Text style={styles.profileValText}>{donorProfile.phone}</Text>
-
-              <Text style={styles.inputLabel}>PICKUP ADDRESS</Text>
-              <Text style={styles.profileValText}>
-                {donorProfile.address}, {donorProfile.city} - {donorProfile.pincode}
-              </Text>
-
-              <Text style={styles.inputLabel}>PREFERRED PICKUP WINDOW</Text>
-              <Text style={styles.profileValText}>{donorProfile.pickupWindow}</Text>
-
               <TouchableOpacity
-                style={styles.editProfileBtn}
                 onPress={() => {
-                  setSetupStep(1);
-                  setIsFirstTimeSetup(true);
+                  setIsOnboarded(false);
+                  setOnboardingStep(1);
                 }}>
-                <Text style={styles.editProfileBtnText}>Edit Donor Registration Details</Text>
+                <Text style={styles.editProfileText}>Edit</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Tab Switcher Pills */}
+            <View style={styles.tabPillsRow}>
+              <TouchableOpacity
+                style={[styles.tabPill, activeTab === 'donate' && styles.tabPillActive]}
+                onPress={() => setActiveTab('donate')}>
+                <Plus size={15} color={activeTab === 'donate' ? '#ffffff' : AppColors.textSecondary} />
+                <Text style={[styles.tabPillText, activeTab === 'donate' && styles.tabPillTextActive]}>
+                  Donate Surplus
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tabPill, activeTab === 'my_donations' && styles.tabPillActive]}
+                onPress={() => setActiveTab('my_donations')}>
+                <Clock size={15} color={activeTab === 'my_donations' ? '#ffffff' : AppColors.textSecondary} />
+                <Text style={[styles.tabPillText, activeTab === 'my_donations' && styles.tabPillTextActive]}>
+                  Active ({donationsList.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* TAB 1: DONATE SURPLUS FOOD FORM */}
+            {activeTab === 'donate' && (
+              <View style={styles.cardContainer}>
+                
+                {/* 1. PHOTO SECTION */}
+                <View style={styles.sectionBox}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Camera size={18} color="#18352b" />
+                    <Text style={styles.sectionBoxTitle}>1. Food Photo Section</Text>
+                  </View>
+                  <Text style={styles.sectionBoxDesc}>
+                    Upload a clear photo of the prepared surplus food so shelters can inspect quality.
+                  </Text>
+
+                  {selectedPhoto ? (
+                    <View style={styles.photoPreviewCard}>
+                      <Image source={{ uri: selectedPhoto }} style={styles.photoImage} />
+                      <View style={styles.photoOverlayBar}>
+                        <TouchableOpacity
+                          style={styles.photoActionBtn}
+                          onPress={() => setSelectedPhoto(null)}>
+                          <Trash2 size={14} color="#ffffff" />
+                          <Text style={styles.photoActionText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.photoUploadPlaceholder}>
+                      <Camera size={32} color={AppColors.textMuted} />
+                      <Text style={styles.uploadMainText}>Tap to Capture Food Photo</Text>
+                      <Text style={styles.uploadSubText}>Take photo via camera or select gallery</Text>
+                    </View>
+                  )}
+
+                  {/* Preset Photos Selector */}
+                  <Text style={styles.presetLabel}>Or select quick sample photo:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
+                    {sampleFoodPhotos.map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.presetThumbBox,
+                          selectedPhoto === item.url && { borderColor: '#18352b', borderWidth: 2 },
+                        ]}
+                        onPress={() => setSelectedPhoto(item.url)}>
+                        <Image source={{ uri: item.url }} style={styles.presetThumb} />
+                        <Text style={styles.presetThumbTitle} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* 2. FOOD DETAILS & CATEGORY */}
+                <View style={styles.sectionBox}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Utensils size={18} color="#18352b" />
+                    <Text style={styles.sectionBoxTitle}>2. Food Item Details</Text>
+                  </View>
+
+                  <Text style={styles.inputLabel}>FOOD ITEM TITLE / MENU DESCRIPTION *</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={foodTitle}
+                    onChangeText={setFoodTitle}
+                    placeholder="e.g. Mixed Veg Curry, Dal Makhani & 40 Rotis"
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+
+                  <Text style={styles.inputLabel}>FOOD CATEGORY</Text>
+                  <View style={styles.categoryChipsRow}>
+                    {['Cooked Meals', 'Raw Produce', 'Bakery & Bread', 'Packaged Snacks', 'Dairy & Drinks'].map(
+                      (cat) => (
+                        <TouchableOpacity
+                          key={cat}
+                          style={[
+                            styles.chipBtn,
+                            foodCategory === cat && styles.chipBtnActive,
+                          ]}
+                          onPress={() => setFoodCategory(cat)}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              foodCategory === cat && styles.chipTextActive,
+                            ]}>
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+
+                  <Text style={styles.inputLabel}>DIETARY TAG</Text>
+                  <View style={styles.dietRow}>
+                    {(['Veg', 'Non-Veg', 'Egg'] as const).map((tag) => (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[
+                          styles.dietChip,
+                          vegTag === tag && styles.dietChipActive,
+                          tag === 'Veg' && { backgroundColor: '#e6f0c9' },
+                          tag === 'Non-Veg' && { backgroundColor: '#f9ddcb' },
+                        ]}
+                        onPress={() => setVegTag(tag)}>
+                        <Text style={[styles.dietChipText, vegTag === tag && { fontWeight: '800' }]}>
+                          {tag === 'Veg' ? '🌱 Pure Veg' : tag === 'Non-Veg' ? '🍖 Non-Veg' : '🥚 Contains Egg'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* 3. TIMINGS, QUANTITY & SHELF LIFE */}
+                <View style={styles.sectionBox}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Clock size={18} color="#18352b" />
+                    <Text style={styles.sectionBoxTitle}>3. Freshness & Shelf Life</Text>
+                  </View>
+
+                  <Text style={styles.inputLabel}>WHEN WAS THE FOOD PREPARED? *</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={preparedAt}
+                    onChangeText={setPreparedAt}
+                    placeholder="e.g. Today at 1:30 PM (1 hr ago)"
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+
+                  <Text style={styles.inputLabel}>APPROXIMATE QUANTITY *</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder="e.g. Serves ~30 people or 15 KG"
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+
+                  <Text style={styles.inputLabel}>SHELF LIFE / BEST BEFORE (BY DONOR) *</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={shelfLife}
+                    onChangeText={setShelfLife}
+                    placeholder="e.g. Best within 4 hours (consume by 8:00 PM)"
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+
+                  <Text style={styles.inputLabel}>CONTAINERS / PACKAGING</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={packagingType}
+                    onChangeText={setPackagingType}
+                    placeholder="e.g. Packed in disposable foil containers"
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+
+                  <Text style={styles.inputLabel}>SPECIAL PICKUP INSTRUCTIONS</Text>
+                  <TextInput
+                    style={[styles.inputField, { height: 70 }]}
+                    value={specialInstructions}
+                    onChangeText={setSpecialInstructions}
+                    multiline
+                    placeholder="e.g. Pickup from rear kitchen door. Contact Manager Ramesh."
+                    placeholderTextColor={AppColors.textMuted}
+                  />
+                </View>
+
+                {/* SUBMIT BUTTON */}
+                <TouchableOpacity
+                  style={styles.postSubmitBtn}
+                  activeOpacity={0.85}
+                  onPress={handlePostDonation}>
+                  <Text style={styles.postSubmitBtnText}>Publish Surplus Food Donation</Text>
+                  <ArrowRight size={18} color="#ffffff" />
+                </TouchableOpacity>
+
+              </View>
+            )}
+
+            {/* TAB 2: ACTIVE LISTINGS FEED */}
+            {activeTab === 'my_donations' && (
+              <View style={styles.cardContainer}>
+                <View style={styles.sectionHeaderRow}>
+                  <Clock size={20} color="#18352b" />
+                  <Text style={styles.formTitle}>Active Food Donations</Text>
+                </View>
+                <Text style={styles.formSub}>Real-time matching status for posted food surplus.</Text>
+
+                {donationsList.map((item) => (
+                  <View key={item.id} style={styles.donationCard}>
+                    <View style={styles.donationTopRow}>
+                      <Image source={{ uri: item.photoUrl }} style={styles.donationThumb} />
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.tagRow}>
+                          <View style={styles.categoryBadge}>
+                            <Text style={styles.categoryBadgeText}>{item.category}</Text>
+                          </View>
+                          <View style={styles.vegBadge}>
+                            <Text style={styles.vegBadgeText}>{item.vegTag}</Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.donationItemTitle}>{item.title}</Text>
+                        <Text style={styles.donationSubText}>{item.quantity}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.donationDetailsBox}>
+                      <View style={styles.detailRow}>
+                        <Clock size={14} color={AppColors.textSecondary} />
+                        <Text style={styles.detailText}>
+                          <Text style={{ fontWeight: '700' }}>Prepared:</Text> {item.preparedAt}
+                        </Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <ShieldCheck size={14} color="#9fbd42" />
+                        <Text style={styles.detailText}>
+                          <Text style={{ fontWeight: '700' }}>Shelf Life:</Text> {item.shelfLife}
+                        </Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <MapPin size={14} color={AppColors.textSecondary} />
+                        <Text style={styles.detailText} numberOfLines={1}>
+                          {item.address}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.statusFooter}>
+                      {item.status === 'matching' ? (
+                        <View style={styles.statusPillYellow}>
+                          <RefreshCw size={14} color="#dd835d" />
+                          <Text style={styles.statusPillYellowText}>
+                            Searching Nearest Shelter (Algorithm Active)...
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.statusPillGreen}>
+                          <Bike size={14} color="#7da750" />
+                          <Text style={styles.statusPillGreenText}>
+                            Driver Assigned: Amara (10 mins away)
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
           </View>
         )}
 
@@ -742,7 +817,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: AppSpacing.lg,
   },
 
-  /* Header */
+  /* Brand Header */
   topHeader: {
     marginBottom: AppSpacing.md,
   },
@@ -790,7 +865,196 @@ const styles = StyleSheet.create({
     color: '#18352b',
   },
 
-  /* Tab Pills */
+  /* Short Onboarding Cards */
+  onboardingWrapper: {
+    gap: 16,
+  },
+  progressContainer: {
+    backgroundColor: '#f7f7f2',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dce2d8',
+    gap: 8,
+  },
+  progressHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressStepText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#18352b',
+    letterSpacing: 1,
+  },
+  progressPercentText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9fbd42',
+  },
+  trackBar: {
+    height: 6,
+    backgroundColor: '#dce2d8',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  fillBar: {
+    height: '100%',
+    backgroundColor: '#18352b',
+    borderRadius: 3,
+  },
+
+  onboardingCard: {
+    backgroundColor: '#f7f7f2',
+    borderRadius: AppRadius.xl,
+    padding: AppSpacing.xl,
+    borderWidth: 1,
+    borderColor: '#dce2d8',
+    gap: 12,
+    boxShadow: '6px 6px 14px rgba(48,69,58,.11)',
+  },
+  cardHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  onboardingHeroTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#18352b',
+  },
+  onboardingHeroSub: {
+    fontSize: 13,
+    color: '#6c7b73',
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+
+  donorTypeGrid: {
+    gap: 10,
+  },
+  donorTypeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: AppRadius.md,
+    backgroundColor: '#faf9f5',
+    borderWidth: 1,
+    borderColor: '#dce2d8',
+  },
+  donorTypeCardActive: {
+    borderColor: '#18352b',
+    backgroundColor: '#e7eddc',
+    borderWidth: 2,
+  },
+  donorTypeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  donorTypeLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18352b',
+  },
+  donorTypeDesc: {
+    fontSize: 11,
+    color: '#6c7b73',
+    marginTop: 2,
+  },
+
+  /* GPS Location Detector */
+  detectGpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#d7ee85',
+    paddingVertical: 14,
+    borderRadius: AppRadius.pill,
+    marginVertical: 4,
+  },
+  detectGpsBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#18352b',
+  },
+  gpsFixedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#e6f0c9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: AppRadius.pill,
+  },
+  gpsFixedText: {
+    fontSize: 11,
+    color: '#18352b',
+  },
+
+  backBtn: {
+    backgroundColor: '#faf9f5',
+    borderWidth: 1,
+    borderColor: '#dce2d8',
+    borderRadius: AppRadius.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6c7b73',
+  },
+
+  /* Active Profile Summary Bar */
+  activeProfileBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#e7eddc',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d5dec9',
+    marginBottom: 16,
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#91bc48',
+  },
+  activeProfileName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18352b',
+  },
+  activeProfileBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6c7b73',
+  },
+  activeProfileLoc: {
+    fontSize: 11,
+    color: '#6c7b73',
+    marginTop: 2,
+  },
+  editProfileText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#18352b',
+    textDecorationLine: 'underline',
+  },
+
+  /* Tab Switcher */
   tabPillsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -820,112 +1084,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  /* Setup Card */
-  setupCard: {
-    backgroundColor: '#f7f7f2',
-    borderRadius: AppRadius.xl,
-    padding: AppSpacing.xl,
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-    marginBottom: AppSpacing.xl,
-    boxShadow: '6px 6px 14px rgba(48,69,58,.11)',
-  },
-  setupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  setupTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-  setupSub: {
-    fontSize: 13,
-    color: '#6c7b73',
-    lineHeight: 19,
-    marginBottom: AppSpacing.lg,
-  },
-  stepBlock: {
-    gap: 12,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#18352b',
-    marginBottom: 4,
-  },
-  donorTypeGrid: {
-    gap: 10,
-  },
-  donorTypeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: AppRadius.md,
-    backgroundColor: '#faf9f5',
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-  },
-  donorTypeIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  donorTypeLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#18352b',
-  },
-  donorTypeDesc: {
-    fontSize: 11,
-    color: '#6c7b73',
-    marginTop: 2,
-  },
-
-  /* Form Common */
+  /* Form Containers */
   cardContainer: {
     gap: AppSpacing.lg,
   },
-  formHeaderCard: {
-    backgroundColor: '#f7f7f2',
-    borderRadius: AppRadius.xl,
-    padding: AppSpacing.xl,
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-  },
-  badgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#d7ee85',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: AppRadius.pill,
-    marginBottom: 8,
-  },
-  badgePillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#18352b',
-    letterSpacing: 0.8,
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#18352b',
-    marginBottom: 4,
-  },
-  formSub: {
-    fontSize: 13,
-    color: '#6c7b73',
-  },
-
   sectionBox: {
     backgroundColor: '#f7f7f2',
     borderRadius: AppRadius.xl,
@@ -1095,7 +1257,7 @@ const styles = StyleSheet.create({
     color: '#18352b',
   },
 
-  /* Submit Buttons */
+  /* Buttons */
   primaryBtn: {
     backgroundColor: '#18352b',
     borderRadius: AppRadius.pill,
@@ -1129,6 +1291,15 @@ const styles = StyleSheet.create({
   },
 
   /* Active Donations */
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18352b',
+  },
+  formSub: {
+    fontSize: 13,
+    color: '#6c7b73',
+  },
   donationCard: {
     backgroundColor: '#f7f7f2',
     borderRadius: AppRadius.xl,
@@ -1228,28 +1399,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#7da750',
-  },
-
-  /* Profile Tab */
-  profileValText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#18352b',
-    marginBottom: 8,
-  },
-  editProfileBtn: {
-    backgroundColor: '#faf9f5',
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-    paddingVertical: 12,
-    borderRadius: AppRadius.pill,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  editProfileBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#18352b',
   },
 
   /* Modal */
