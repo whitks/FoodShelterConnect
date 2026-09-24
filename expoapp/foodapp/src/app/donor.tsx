@@ -24,6 +24,7 @@ import {
   Store,
   Trash2,
   User,
+  Users,
   Utensils,
   X,
 } from 'lucide-react-native';
@@ -1049,9 +1050,6 @@ export default function FoodDonorScreen() {
                 ))}
               </View>
             )}
-
-          </View>
-        )}
 
             {/* TAB 4: NGO DEMANDS — cross-view for donor */}
             {activeTab === 'ngo_demands' && (
