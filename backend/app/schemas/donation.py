@@ -12,8 +12,8 @@ class DonationCreate(BaseModel):
     storage_condition: StorageCondition
     prepared_at: datetime
     pickup_address: str
-    pickup_lat: float
-    pickup_lng: float
+    pickup_lat: Optional[float] = 0.0
+    pickup_lng: Optional[float] = 0.0
     area_zone: Optional[str] = None
     notes: Optional[str] = None
     packaged_expiry: Optional[datetime] = None

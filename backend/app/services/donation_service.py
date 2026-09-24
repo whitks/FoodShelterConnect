@@ -21,7 +21,12 @@ def _enrich_donation(donation: Donation) -> dict:
     data["safety_status"] = get_safety_status(donation.expires_at)
     return data
 
-async def create_donation(db: AsyncSession, donor_id: uuid.UUID, data: DonationCreate) -> dict:
+async def create_donation(
+    db: AsyncSession,
+    donor_id: uuid.UUID,
+    data: DonationCreate,
+    source: DonationSource = DonationSource.APP,
+) -> dict:
     stmt_user = select(User).where(User.id == donor_id)
     donor = (await db.execute(stmt_user)).scalar_one()
 
@@ -59,7 +64,7 @@ async def create_donation(db: AsyncSession, donor_id: uuid.UUID, data: DonationC
         pickup_lng=data.pickup_lng,
         area_zone=data.area_zone,
         status=status_to_set,
-        source=DonationSource.APP,
+        source=source,
         notes=data.notes
     )
     

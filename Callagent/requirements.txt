@@ -1,0 +1,11 @@
+# FoodShelter voice call agent (run inside the FoodShelter venv, which already
+# has fastapi, uvicorn, httpx, websockets, aiosqlite, sqlalchemy, pydantic-settings).
+twilio==9.11.1
+httpx>=0.27
+websockets>=12.0,<18
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+pydantic-settings>=2.3
+sqlalchemy[asyncio]>=2.0
+aiosqlite>=0.19
