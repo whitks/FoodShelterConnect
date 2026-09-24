@@ -32,8 +32,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_MOBILE = SCREEN_WIDTH < 768;
@@ -76,6 +76,11 @@ const steps = [
 export default function MobileFirstLandingPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scooterPlayer = useVideoPlayer(require('../../assets/videos/scootervideo.mp4'), (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'donor' | 'shelter' | 'volunteer'>('donor');
@@ -238,68 +243,12 @@ export default function MobileFirstLandingPage() {
 
           {/* Native Animated Flow Visual Card */}
           <View style={styles.flowVisualCard}>
-            <View style={styles.flowKickerRow}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.flowKickerText}>LIVE ROUTE · 07 MIN LEFT</Text>
-            </View>
-
-            {/* Native SVG Route Graphic */}
-            <View style={styles.svgContainer}>
-              <Svg width="100%" height="220" viewBox="0 0 340 220">
-                <Path
-                  d="M 30 50 C 90 20, 130 110, 170 90 S 230 40, 310 60"
-                  fill="none"
-                  stroke="#21493b"
-                  strokeWidth="3"
-                  strokeDasharray="4, 6"
-                />
-                <Path
-                  d="M 50 170 C 110 200, 160 130, 210 150 S 270 190, 310 160"
-                  fill="none"
-                  stroke="#9dbf68"
-                  strokeWidth="3"
-                  strokeDasharray="4, 6"
-                />
-              </Svg>
-            </View>
-
-            {/* Floating Flow Nodes */}
-            <View style={styles.nodesOverlay}>
-              <View style={[styles.flowNode, { top: 20, left: 10 }]}>
-                <View style={[styles.flowIconBox, { backgroundColor: '#dd835d' }]}>
-                  <Utensils size={15} color="#ffffff" />
-                </View>
-                <View>
-                  <Text style={styles.flowNodeTitle}>Kitchen</Text>
-                  <Text style={styles.flowNodeSub}>Olive & Grain · 15kg</Text>
-                </View>
-              </View>
-
-              <View style={[styles.flowNode, { top: 90, alignSelf: 'center' }]}>
-                <View style={[styles.flowIconBox, { backgroundColor: '#7da750' }]}>
-                  <Bike size={15} color="#ffffff" />
-                </View>
-                <View>
-                  <Text style={styles.flowNodeTitle}>Volunteer Driver</Text>
-                  <Text style={styles.flowNodeSub}>Amara · en route</Text>
-                </View>
-              </View>
-
-              <View style={[styles.flowNode, { bottom: 20, right: 10 }]}>
-                <View style={[styles.flowIconBox, { backgroundColor: '#729798' }]}>
-                  <HeartHandshake size={15} color="#ffffff" />
-                </View>
-                <View>
-                  <Text style={styles.flowNodeTitle}>Shelter</Text>
-                  <Text style={styles.flowNodeSub}>Harbor House NGO</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.flowFooterStatus}>
-              <View style={[styles.pulseDot, { backgroundColor: '#91bc48' }]} />
-              <Text style={styles.flowFooterStatusText}>COORDINATED IN REAL TIME</Text>
-            </View>
+            <VideoView
+              player={scooterPlayer}
+              style={styles.flowVideo}
+              contentFit="cover"
+              nativeControls={false}
+            />
           </View>
         </View>
 
@@ -711,15 +660,26 @@ const styles = StyleSheet.create({
 
   /* Flow Visual Card */
   flowVisualCard: {
-    backgroundColor: '#e7eddc',
+    backgroundColor: '#18352b',
     borderRadius: 28,
-    padding: 20,
+    padding: 0,
     borderWidth: 1,
     borderColor: '#d5dec9',
     position: 'relative',
-    minHeight: 250,
-    justifyContent: 'space-between',
+    minHeight: 320,
+    height: 320,
     overflow: 'hidden',
+  },
+  flowVideo: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 1,
+    zIndex: 1,
   },
   flowKickerRow: {
     flexDirection: 'row',
@@ -730,7 +690,7 @@ const styles = StyleSheet.create({
   flowKickerText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#66805e',
+    color: '#eff7d8',
     letterSpacing: 1,
   },
   svgContainer: {
@@ -780,7 +740,7 @@ const styles = StyleSheet.create({
   flowFooterStatusText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#678064',
+    color: '#eff7d8',
     letterSpacing: 1,
   },
 
