@@ -7,6 +7,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Compass,
   HeartHandshake,
@@ -45,6 +46,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 
 import { AppColors, AppRadius, AppShadows, AppSpacing } from '@/constants/theme';
+import LiveDeliveryMap from '@/components/live-delivery-map';
 
 // 5 Main Donor Types
 const donorTypes = [
@@ -161,7 +163,8 @@ export default function FoodDonorScreen() {
   const [streetAddress, setStreetAddress] = useState('42 Commercial Street, Indiranagar');
   const [city, setCity] = useState('Bengaluru');
   const [pincode, setPincode] = useState('560038');
-  const [pickupWindow, setPickupWindow] = useState<string>('Lunch (2–4 PM)');
+  const [pickupWindow, setPickupWindow] = useState<string>('Lunch (12–2 PM)');
+  const [pickupDropdownVisible, setPickupDropdownVisible] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [gpsCoordinates, setGpsCoordinates] = useState<string | null>(null);
 
@@ -318,6 +321,47 @@ export default function FoodDonorScreen() {
     setCartQuantities({});
   };
 
+  // Helper: auto-progress a donation through the delivery statuses
+  const startDeliverySimulation = (donationId: string) => {
+    const ngoRequest = appStore.getState().activeRequests[0];
+    const driverName = ['Amara Singh', 'Ravi Patel', 'Priya Nair', 'Dev Kumar'][
+      Math.floor(Math.random() * 4)
+    ];
+
+    // After 3s: NGO matches → assign rider
+    setTimeout(() => {
+      appStore.updateDonationStatus(donationId, 'assigned', {
+        driverName,
+        assignedNgoName: ngoRequest?.ngoName ?? 'Harbor House NGO',
+        assignedNgoAddress: ngoRequest?.address ?? '88 Shelter Road, Bengaluru',
+        assignedAt: Date.now(),
+      });
+      setDonationsList((prev) =>
+        prev.map((d) =>
+          d.id === donationId
+            ? { ...d, status: 'assigned' as const, driverName }
+            : d
+        )
+      );
+    }, 3000);
+
+    // After 12s: rider reaches donor → picked up
+    setTimeout(() => {
+      appStore.updateDonationStatus(donationId, 'picked');
+      setDonationsList((prev) =>
+        prev.map((d) => (d.id === donationId ? { ...d, status: 'picked' as const } : d))
+      );
+    }, 12000);
+
+    // After 30s: rider reaches shelter → delivered
+    setTimeout(() => {
+      appStore.updateDonationStatus(donationId, 'delivered');
+      setDonationsList((prev) =>
+        prev.map((d) => (d.id === donationId ? { ...d, status: 'delivered' as const } : d))
+      );
+    }, 30000);
+  };
+
   // Submit Single Donation Form
   const handlePostDonation = () => {
     if (!foodTitle.trim()) {
@@ -325,8 +369,9 @@ export default function FoodDonorScreen() {
       return;
     }
 
+    const donationId = `don_${Date.now()}`;
     const newDonation = {
-      id: `don_${Date.now()}`,
+      id: donationId,
       title: foodTitle,
       donorName: donorName,
       donorType: donorTypes.find((t) => t.id === selectedDonorType)?.label || 'Donor',
@@ -345,6 +390,10 @@ export default function FoodDonorScreen() {
     appStore.addDonation(newDonation);
     setPostSuccessModal(true);
     setFoodTitle('');
+    setActiveTab('my_donations');
+
+    // Kick off the automatic delivery simulation
+    startDeliverySimulation(donationId);
   };
 
   return (
@@ -558,30 +607,51 @@ export default function FoodDonorScreen() {
                 </View>
 
                 <Text style={styles.inputLabel}>PREFERRED DAILY PICKUP WINDOW</Text>
-                <View style={styles.pickupWindowGrid}>
-                  {[
-                    { id: 'morning', label: '🌅 Morning', sub: '7–10 AM' },
-                    { id: 'lunch', label: '☀️ Lunch', sub: '12–2 PM' },
-                    { id: 'post_lunch', label: '🕑 Afternoon', sub: '2–4 PM' },
-                    { id: 'evening', label: '🌆 Evening', sub: '5–7 PM' },
-                    { id: 'dinner', label: '🌙 Dinner', sub: '8–10 PM' },
-                    { id: 'anytime', label: '🔔 Anytime', sub: 'Call us' },
-                  ].map((slot) => {
-                    const selected = pickupWindow === slot.sub;
-                    return (
-                      <TouchableOpacity
-                        key={slot.id}
-                        style={[styles.pickupSlotBtn, selected && styles.pickupSlotBtnActive]}
-                        onPress={() => setPickupWindow(slot.sub)}>
-                        <Text style={[styles.pickupSlotEmoji]}>{slot.label.split(' ')[0]}</Text>
-                        <Text style={[styles.pickupSlotLabel, selected && styles.pickupSlotLabelActive]}>
-                          {slot.label.split(' ').slice(1).join(' ')}
-                        </Text>
-                        <Text style={[styles.pickupSlotSub, selected && { color: '#18352b' }]}>{slot.sub}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                
+                <TouchableOpacity
+                  style={[styles.inputField, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                  activeOpacity={0.7}
+                  onPress={() => setPickupDropdownVisible(true)}>
+                  <Text style={{ fontSize: 16, color: '#18352b', fontWeight: '700' }}>
+                    {pickupWindow}
+                  </Text>
+                  <ChevronDown size={20} color="#18352b" />
+                </TouchableOpacity>
+
+                <Modal visible={pickupDropdownVisible} transparent={true} animationType="fade">
+                  <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPickupDropdownVisible(false)}>
+                    <View style={styles.modalCard}>
+                      <Text style={[styles.modalTitle, { marginBottom: 20 }]}>Select Pickup Time</Text>
+                      {[
+                        { id: 'morning', label: 'Morning', sub: '7–10 AM' },
+                        { id: 'lunch', label: 'Lunch', sub: '12–2 PM' },
+                        { id: 'post_lunch', label: 'Afternoon', sub: '2–4 PM' },
+                        { id: 'evening', label: 'Evening', sub: '5–7 PM' },
+                        { id: 'dinner', label: 'Dinner', sub: '8–10 PM' },
+                        { id: 'anytime', label: 'Anytime', sub: 'Call us' },
+                      ].map((slot) => {
+                        const isSelected = pickupWindow === slot.sub || pickupWindow === `${slot.label} (${slot.sub})`;
+                        return (
+                          <TouchableOpacity
+                            key={slot.id}
+                            style={[
+                              { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#dce2d8', flexDirection: 'row', justifyContent: 'space-between' },
+                              isSelected && { backgroundColor: '#f0f5e1' }
+                            ]}
+                            onPress={() => {
+                              setPickupWindow(`${slot.label} (${slot.sub})`);
+                              setPickupDropdownVisible(false);
+                            }}>
+                            <Text style={{ fontSize: 16, color: '#18352b', fontWeight: isSelected ? '800' : '600' }}>
+                              {slot.label} <Text style={{ color: '#6c7b73', fontWeight: 'normal' }}>({slot.sub})</Text>
+                            </Text>
+                            {isSelected && <Check size={18} color="#91bc48" />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </TouchableOpacity>
+                </Modal>
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                   <TouchableOpacity
@@ -983,6 +1053,16 @@ export default function FoodDonorScreen() {
 
                 {donationsList.map((item) => (
                   <View key={item.id} style={styles.donationCard}>
+
+                    {/* Live Delivery Map — shown for every active donation */}
+                    <LiveDeliveryMap
+                      donorLat={12.9784}
+                      donorLng={77.6408}
+                      donorName={donorName}
+                      status={item.status as any}
+                      driverName={(item as any).driverName}
+                    />
+
                     <View style={styles.donationTopRow}>
                       <Image
                         source={{ uri: item.photoUrl }}

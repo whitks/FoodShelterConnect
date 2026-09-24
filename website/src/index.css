@@ -165,6 +165,7 @@ body {
   cursor: pointer;
 }
 
+/* Modals */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -174,7 +175,6 @@ body {
   align-items: center;
   z-index: 1000;
 }
-
 .modal-card {
   background: var(--white);
   padding: 2rem;
@@ -182,18 +182,15 @@ body {
   width: 90%;
   max-width: 400px;
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
 }
-
 .form-group {
   margin-bottom: 1rem;
 }
-
 .form-group label {
   display: block;
   font-size: 0.75rem;
@@ -201,7 +198,6 @@ body {
   margin-bottom: 0.5rem;
   color: var(--text-light);
 }
-
 .form-group input {
   width: 100%;
   padding: 0.8rem;
@@ -209,7 +205,6 @@ body {
   border-radius: 8px;
   box-sizing: border-box;
 }
-
 .modal-submit {
   width: 100%;
   background: var(--text-dark);
@@ -220,4 +215,217 @@ body {
   border: none;
   cursor: pointer;
   margin-top: 1rem;
+}
+
+/* Ticker */
+.ticker-banner {
+  background: #2a3d36;
+  color: #a4b3ac;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+.ticker-highlight {
+  color: var(--accent-lime);
+  font-weight: bold;
+}
+
+/* Sections */
+.section-container {
+  padding: 4rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+}
+.section-body {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  line-height: 1.6;
+  max-width: 600px;
+  margin-bottom: 2rem;
+}
+
+/* Stat Pills */
+.stat-pills-row {
+  display: flex;
+  gap: 1rem;
+}
+.stat-pill {
+  flex: 1;
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #dce2d8;
+}
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+.stat-label {
+  font-size: 0.8rem;
+  color: #849189;
+  font-weight: bold;
+}
+
+/* Calculator */
+.calc-card {
+  background: var(--white);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  border: 1px solid #dce2d8;
+  max-width: 500px;
+}
+.calc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+.calc-input {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d5dec9;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  background: #faf9f5;
+  box-sizing: border-box;
+}
+.calc-results {
+  display: flex;
+  background: var(--bg-color);
+  border-radius: 1rem;
+  padding: 1rem;
+  gap: 1rem;
+}
+.calc-result-box {
+  flex: 1;
+  text-align: center;
+}
+.calc-result-val {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--accent-lime-dark);
+}
+.calc-result-sub {
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #6c7b73;
+}
+
+/* Steps */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+.step-card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #dce2d8;
+  position: relative;
+}
+.step-number {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  font-weight: bold;
+  color: #aab6a7;
+}
+.step-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.step-title {
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.step-desc {
+  color: #7e8b83;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Dark Section */
+.dark-section {
+  background: #18352b;
+  color: var(--white);
+  padding: 4rem 2rem;
+}
+.dark-section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Roles */
+.roles-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.role-card {
+  padding: 2rem;
+  border-radius: 1.5rem;
+  border: 1px solid #dce2d8;
+}
+.role-eyebrow {
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #18352b;
+}
+.role-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+.role-desc {
+  font-size: 1rem;
+  color: #18352b;
+  margin-bottom: 1.5rem;
+  opacity: 0.8;
+}
+
+/* Impacts */
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+.impact-card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: var(--white);
+  border: 1px solid #dce2d8;
+}
+
+/* Join CTA */
+.join-card {
+  background: var(--accent-lime);
+  padding: 3rem;
+  border-radius: 1.5rem;
+  text-align: center;
+}
+
+/* Footer */
+.footer {
+  padding: 2rem;
+  text-align: center;
+  border-top: 1px solid #dce2d8;
+  color: var(--text-light);
+  font-size: 0.9rem;
 }

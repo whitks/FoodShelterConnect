@@ -24,9 +24,6 @@ export default function AppTabs() {
           <TabTrigger name="shelter" href="/shelter" asChild>
             <TabButton icon={HeartHandshake}>Shelters</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton icon={MapPin}>Explore</TabButton>
-          </TabTrigger>
         </CustomTabList>
       </TabList>
     </Tabs>

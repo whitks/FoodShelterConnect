@@ -21,6 +21,11 @@ export interface ActiveDonation {
   photoUrl: string;
   postedAgo: string;
   status: 'matching' | 'assigned' | 'picked' | 'delivered';
+  // Delivery details populated once assigned
+  driverName?: string;
+  assignedNgoName?: string;
+  assignedNgoAddress?: string;
+  assignedAt?: number; // timestamp used to drive map animation
 }
 
 export interface ActiveRequest {
@@ -162,6 +167,20 @@ export const appStore = {
 
   addRequest: (request: ActiveRequest) => {
     state = { ...state, activeRequests: [request, ...state.activeRequests] };
+    notify();
+  },
+
+  updateDonationStatus: (
+    donationId: string,
+    status: ActiveDonation['status'],
+    extra?: Partial<ActiveDonation>
+  ) => {
+    state = {
+      ...state,
+      activeDonations: state.activeDonations.map((d) =>
+        d.id === donationId ? { ...d, status, ...extra } : d
+      ),
+    };
     notify();
   },
 };
