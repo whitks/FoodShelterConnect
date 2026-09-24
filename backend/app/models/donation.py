@@ -19,6 +19,7 @@ class StorageCondition(enum.Enum):
 
 class DonationStatus(enum.Enum):
     POSTED = "POSTED"
+    REVIEW = "REVIEW"
     MATCHED = "MATCHED"
     ACCEPTED = "ACCEPTED"
     PICKED_UP = "PICKED_UP"
@@ -27,6 +28,7 @@ class DonationStatus(enum.Enum):
     DECLINED = "DECLINED"
     EXPIRED = "EXPIRED"
     REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
 
 class DonationSource(enum.Enum):
     APP = "APP"
@@ -48,6 +50,7 @@ class Donation(Base):
     pickup_address: Mapped[str] = mapped_column(String, nullable=False)
     pickup_lat: Mapped[float] = mapped_column(Float, nullable=False)
     pickup_lng: Mapped[float] = mapped_column(Float, nullable=False)
+    area_zone: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[DonationStatus] = mapped_column(SQLEnum(DonationStatus), nullable=False)
     source: Mapped[DonationSource] = mapped_column(SQLEnum(DonationSource), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

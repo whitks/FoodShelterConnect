@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, String, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid, Enum as SQLEnum
 from backend.app.database import Base
@@ -13,6 +13,7 @@ class DeliveryStatus(enum.Enum):
     DELIVERED = "DELIVERED"
     CONFIRMED = "CONFIRMED"
     FAILED = "FAILED"
+    DECLINED = "DECLINED"
 
 class DeliveryAssignment(Base):
     __tablename__ = "delivery_assignments"
@@ -26,6 +27,7 @@ class DeliveryAssignment(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[DeliveryStatus] = mapped_column(SQLEnum(DeliveryStatus), nullable=False)
+    match_explanation: Mapped[str | None] = mapped_column(String, nullable=True)
 
     donation = relationship("Donation")
     shelter = relationship("ShelterProfile")
