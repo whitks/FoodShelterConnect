@@ -372,6 +372,7 @@ export default function FoodDonorScreen() {
       setVisionResult(res.item);
     } catch (err) {
       setVisionResult(null);
+      if (err instanceof Error) console.error('[vision] analysis failed:', err.message);
       Alert.alert(
         'Vision Analysis Failed',
         err instanceof Error ? err.message : 'Could not analyze the food photo.'
@@ -392,10 +393,6 @@ export default function FoodDonorScreen() {
       'Food Details Detected',
       `"${item.title}" • ${item.category} • ${item.dietary_tag} has been filled in automatically. Review the form and publish.`
     );
-  };
-
-  const handleDismissVision = () => {
-    setVisionModalVisible(false);
   };
 
   // Multi-Item Menu Quantity Increment / Decrement
@@ -1229,7 +1226,6 @@ export default function FoodDonorScreen() {
                     <View style={styles.donationTopRow}>
                       <Image
                         source={{ uri: item.photoUrl }}
-                        placeholder={{ uri: sampleFoodPhotos[0].fallbackDataUri }}
                         style={styles.donationThumb}
                         contentFit="cover"
                         transition={150}
@@ -1839,46 +1835,41 @@ onboardingCard: {
     fontWeight: '800',
     color: '#18352b',
   },
-  presetLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6c7b73',
-    marginTop: 6,
-  },
-  presetScroll: {
+  analyzingPill: {
     flexDirection: 'row',
-  },
-  presetThumbBox: {
-    width: 105,
-    marginRight: 10,
-    borderRadius: AppRadius.md,
-    overflow: 'hidden',
-    backgroundColor: '#faf9f5',
-    borderWidth: 1,
-    borderColor: '#dce2d8',
-    position: 'relative',
-  },
-  presetThumb: {
-    width: '100%',
-    height: 60,
-  },
-  selectedBadgeCheck: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#18352b',
-    justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(24, 53, 43, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: AppRadius.pill,
   },
-  presetThumbTitle: {
-    fontSize: 10,
+  analyzingPillText: {
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: '700',
+  },
+  detectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    backgroundColor: '#e7eddc',
+    borderRadius: AppRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  detectedBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
     color: '#18352b',
-    padding: 4,
-    textAlign: 'center',
+  },
+  detectedBannerEdit: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#5c9686',
+    textDecorationLine: 'underline',
   },
 
   /* Multi-Item Menu Basket */

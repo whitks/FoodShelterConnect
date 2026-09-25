@@ -1,4 +1,59 @@
+# ─── Environment & Secrets ────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
+*.local
+
+# ─── Python / Backend ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist-packages/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.mypy/
+htmlcov/
+.coverage
+coverage.xml
+
+# Virtual environments
 .venv/
-scootervideo.mp4
+venv/
+env/
+backend/app/env/
+
+# Databases (local dev / scratch)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+test.db
+
+# ─── Node / Expo app ───────────────────────────────────────────────────────────
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# ─── Logs & Run Artifacts ──────────────────────────────────────────────────────
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+run_live_test.py
+test_full_workflow.py
+_check_struct.py
+
+# ─── Media (large binary assets) ───────────────────────────────────────────────
 *.mp4
+*.mov
+scootervideo.mp4
+
+# ─── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+*.pem

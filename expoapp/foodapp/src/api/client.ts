@@ -179,11 +179,8 @@ class ApiClient {
   async analyzeFoodImage(imageUri: string): Promise<FoodVisionResponse> {
     const formData = new FormData();
     const filename = `food_${Date.now()}.jpg`;
-    const source =
-      Platform.OS === 'web'
-        ? (await fetch(imageUri).then((r) => r.blob())) as Blob
-        : ({ uri: imageUri, name: filename, type: 'image/jpeg' } as any);
-    formData.append('file', source);
+    const source = await toUploadSource(imageUri);
+    formData.append('file', source as any);
 
     const url = `${this.baseUrl}/vision/food/analyze`;
     const headers: HeadersInit = {};
@@ -217,6 +214,27 @@ class ApiClient {
 
     return response.json();
   }
+}
+
+// Convert a picked image URI into a form-data-ready upload source.
+// On web, expo-image-picker returns a base64 `data:` URI or a `blob:` URI;
+// fetch() cannot read `data:` URIs, so we decode those manually.
+async function toUploadSource(imageUri: string): Promise<Blob | { uri: string; name: string; type: string }> {
+  if (Platform.OS !== 'web') {
+    return { uri: imageUri, name: `food_${Date.now()}.jpg`, type: 'image/jpeg' };
+  }
+  if (imageUri.startsWith('data:')) {
+    const comma = imageUri.indexOf(',');
+    const header = imageUri.slice(0, comma);
+    const base64Data = imageUri.slice(comma + 1);
+    const mime = header.match(/^data:(.*?)(;|$)/)?.[1] || 'image/jpeg';
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+  const res = await fetch(imageUri);
+  return res.blob();
 }
 
 export type DietaryTag = 'Veg' | 'Non-Veg' | 'Egg';
@@ -309,7 +327,7 @@ export interface RegisterData {
   password: string;
   name: string;
   phone: string;
-  role: 'donor' | 'shelter' | 'volunteer';
+  role: 'DONOR' | 'SHELTER' | 'VOLUNTEER' | 'donor' | 'shelter' | 'volunteer';
 }
 
 export const api = new ApiClient(API_BASE_URL);

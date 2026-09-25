@@ -228,7 +228,7 @@ export const appStore = {
     }
   },
 
-  async register(data: { email: string; password: string; name: string; phone: string; role: 'donor' | 'shelter' | 'volunteer' }) {
+  async register(data: { email: string; password: string; name: string; phone: string; role: 'DONOR' | 'SHELTER' | 'VOLUNTEER' | 'donor' | 'shelter' | 'volunteer' }) {
     state = { ...state, isLoading: true, error: null };
     notify();
     try {

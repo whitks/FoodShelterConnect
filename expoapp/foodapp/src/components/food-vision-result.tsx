@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -47,15 +47,15 @@ export function FoodVisionResult({
   const [category, setCategory] = useState('Cooked Meals');
   const [dietaryTag, setDietaryTag] = useState<DietaryTag>('Veg');
   const [eggQuantity, setEggQuantity] = useState('0');
+  const [prevItem, setPrevItem] = useState<FoodVisionItem | null>(null);
 
-  useEffect(() => {
-    if (item) {
-      setTitle(item.title || '');
-      setCategory(item.category || 'Cooked Meals');
-      setDietaryTag(item.dietary_tag || 'Veg');
-      setEggQuantity(String(item.egg_quantity ?? 0));
-    }
-  }, [item]);
+  if (item && item !== prevItem) {
+    setPrevItem(item);
+    setTitle(item.title || '');
+    setCategory(item.category || 'Cooked Meals');
+    setDietaryTag(item.dietary_tag || 'Veg');
+    setEggQuantity(String(item.egg_quantity ?? 0));
+  }
 
   const handleApply = () => {
     const qty = parseInt(eggQuantity, 10);
