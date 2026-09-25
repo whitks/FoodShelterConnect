@@ -343,7 +343,7 @@ export default function FoodDonorScreen() {
         }
       } else {
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           quality: 0.8,
           allowsEditing: true,
           aspect: [4, 3],
@@ -544,7 +544,7 @@ export default function FoodDonorScreen() {
             </View>
             <View>
               <Text style={styles.brandText}>
-                rescue<Text style={styles.brandDot}>.</Text>
+                spoonful<Text style={styles.brandDot}>.</Text>
               </Text>
               <Text style={styles.headerSubtitle}>Food Donor Hub</Text>
             </View>
@@ -592,7 +592,7 @@ export default function FoodDonorScreen() {
               <View style={styles.onboardingCard}>
                 <View style={styles.cardHeroHeader}>
                   <Sparkles size={20} color="#9fbd42" />
-                  <Text style={styles.onboardingHeroTitle}>Welcome to Rescue Donor Hub</Text>
+                  <Text style={styles.onboardingHeroTitle}>Welcome to Spoonful Donor Hub</Text>
                 </View>
                 <Text style={styles.onboardingHeroSub}>
                   Register your kitchen or shop once to connect surplus food with local shelters.

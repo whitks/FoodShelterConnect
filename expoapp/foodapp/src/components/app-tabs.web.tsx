@@ -51,7 +51,7 @@ export function CustomTabList(props: TabListProps) {
           <View style={styles.brandBadge}>
             <Recycle size={14} color="#18352b" strokeWidth={2.6} />
           </View>
-          <Text style={styles.brandText}>rescue<Text style={styles.dotText}>.</Text></Text>
+          <Text style={styles.brandText}>spoonful<Text style={styles.dotText}>.</Text></Text>
         </View>
 
         <View style={styles.triggersRow}>

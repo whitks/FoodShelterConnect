@@ -1,9 +1,10 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { File } from 'expo-file-system';
 
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:8000'
-  : 'https://api.foodshelterconnect.org';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (__DEV__ ? 'http://localhost:8000' : 'https://foodshelterconnect.onrender.com');
 
 interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;
@@ -178,9 +179,7 @@ class ApiClient {
 
   async analyzeFoodImage(imageUri: string): Promise<FoodVisionResponse> {
     const formData = new FormData();
-    const filename = `food_${Date.now()}.jpg`;
-    const source = await toUploadSource(imageUri);
-    formData.append('file', source as any);
+    formData.append('file', await toUploadSource(imageUri));
 
     const url = `${this.baseUrl}/vision/food/analyze`;
     const headers: HeadersInit = {};
@@ -219,9 +218,12 @@ class ApiClient {
 // Convert a picked image URI into a form-data-ready upload source.
 // On web, expo-image-picker returns a base64 `data:` URI or a `blob:` URI;
 // fetch() cannot read `data:` URIs, so we decode those manually.
-async function toUploadSource(imageUri: string): Promise<Blob | { uri: string; name: string; type: string }> {
+// On native, SDK 57's global fetch (expo/fetch) rejects React Native's
+// `{ uri, name, type }` FormData parts, so we pass an expo-file-system `File`
+// (it implements `bytes()`, which expo/fetch accepts).
+async function toUploadSource(imageUri: string): Promise<Blob | File> {
   if (Platform.OS !== 'web') {
-    return { uri: imageUri, name: `food_${Date.now()}.jpg`, type: 'image/jpeg' };
+    return new File(imageUri);
   }
   if (imageUri.startsWith('data:')) {
     const comma = imageUri.indexOf(',');

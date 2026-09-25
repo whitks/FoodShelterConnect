@@ -124,7 +124,7 @@ export default function MobileFirstLandingPage() {
               <Recycle size={18} color="#18352b" strokeWidth={2.6} />
             </View>
             <Text style={styles.brandText}>
-              rescue<Text style={styles.brandDot}>.</Text>
+              spoonful<Text style={styles.brandDot}>.</Text>
             </Text>
           </View>
 
@@ -356,7 +356,7 @@ export default function MobileFirstLandingPage() {
               <Recycle size={18} color="#18352b" strokeWidth={2.6} />
             </View>
             <Text style={styles.brandText}>
-              rescue<Text style={styles.brandDot}>.</Text>
+              spoonful<Text style={styles.brandDot}>.</Text>
             </Text>
           </View>
           <Text style={styles.appHubTitle}>FoodShelter Connect App</Text>
@@ -410,7 +410,7 @@ export default function MobileFirstLandingPage() {
                 </View>
                 <Text style={styles.successTitleText}>Request Received!</Text>
                 <Text style={styles.successSubText}>
-                  Our rescue team will contact <Text style={{ fontWeight: 'bold' }}>{contactEmail}</Text> shortly.
+                  Our Spoonful team will contact <Text style={{ fontWeight: 'bold' }}>{contactEmail}</Text> shortly.
                 </Text>
                 <TouchableOpacity
                   style={styles.modalCloseButton}

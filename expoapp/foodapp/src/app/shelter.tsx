@@ -109,23 +109,23 @@ export default function ShelterScreen() {
   const [onboardingStep, setOnboardingStep] = useState<1 | 2>(1);
 
   // Auth Inputs
-  const [authEmail, setAuthEmail] = useState('contact@harborhouse.org');
-  const [authPassword, setAuthPassword] = useState('••••••••');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Profile Inputs
-  const [ngoName, setNgoName] = useState('Harbor House Shelter');
+  const [ngoName, setNgoName] = useState('');
   const [ngoCategory, setNgoCategory] = useState('Community Shelter');
-  const [regId, setRegId] = useState('NGO-80G-98421');
-  const [contactPerson, setContactPerson] = useState('Sister Mary');
-  const [contactPhone, setContactPhone] = useState('+91 98123 45678');
+  const [regId, setRegId] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
 
   // Location & Capacity Inputs
-  const [streetAddress, setStreetAddress] = useState('88 Shelter Road, Near City Park');
-  const [city, setCity] = useState('Bengaluru');
-  const [pincode, setPincode] = useState('560038');
-  const [maxCapacity, setMaxCapacity] = useState('100 meals / day');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [maxCapacity, setMaxCapacity] = useState('');
   const [isLocating, setIsLocating] = useState(false);
   const [gpsCoordinates, setGpsCoordinates] = useState<string | null>(null);
 
@@ -356,7 +356,7 @@ export default function ShelterScreen() {
             </View>
             <View>
               <Text style={styles.brandText}>
-                rescue<Text style={styles.brandDot}>.</Text>
+                spoonful<Text style={styles.brandDot}>.</Text>
               </Text>
               <Text style={styles.headerSubtitle}>NGO & Shelter Portal</Text>
             </View>
@@ -564,6 +564,32 @@ export default function ShelterScreen() {
                           onChangeText={setContactPhone}
                           placeholder="+91 98123 45678"
                           keyboardType="phone-pad"
+                          placeholderTextColor={AppColors.textMuted}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputLabel}>NGO EMAIL ADDRESS *</Text>
+                        <TextInput
+                          style={styles.inputField}
+                          value={authEmail}
+                          onChangeText={setAuthEmail}
+                          placeholder="contact@shelter.org"
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          placeholderTextColor={AppColors.textMuted}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputLabel}>PASSWORD *</Text>
+                        <TextInput
+                          style={styles.inputField}
+                          value={authPassword}
+                          onChangeText={setAuthPassword}
+                          placeholder="Create a password"
+                          secureTextEntry
                           placeholderTextColor={AppColors.textMuted}
                         />
                       </View>
