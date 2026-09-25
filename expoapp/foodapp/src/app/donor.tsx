@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { appStore, useAppStore } from '@/store/appStore';
+import { api, type FoodVisionItem } from '@/api/client';
+import { FoodVisionResult } from '@/components/food-vision-result';
 import {
   ArrowRight,
   Bike,
@@ -92,28 +94,6 @@ const donorTypes = [
   },
 ];
 
-// Preset Sample Food Photos
-const sampleFoodPhotos = [
-  {
-    id: 'photo1',
-    url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
-    fallbackDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%2318352b"/><circle cx="300" cy="200" r="130" fill="%23244a3d"/><circle cx="230" cy="180" r="60" fill="%23dd835d"/><circle cx="350" cy="170" r="55" fill="%237ea441"/><circle cx="300" cy="260" r="55" fill="%23e6f0c9"/><text x="300" y="365" font-family="sans-serif" font-size="22" font-weight="bold" fill="%23d7ee85" text-anchor="middle">🌱 Fresh Veg Meals %26 Rotis</text></svg>',
-    name: 'Fresh Veg Meals & Rotis',
-  },
-  {
-    id: 'photo2',
-    url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80',
-    fallbackDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%233a2a1d"/><circle cx="300" cy="200" r="130" fill="%23573e2a"/><rect x="200" y="150" width="200" height="100" rx="30" fill="%23dd835d"/><text x="300" y="365" font-family="sans-serif" font-size="22" font-weight="bold" fill="%23f9ddcb" text-anchor="middle">🥐 Bakery Breads %26 Pastries</text></svg>',
-    name: 'Bakery Breads & Pastries',
-  },
-  {
-    id: 'photo3',
-    url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80',
-    fallbackDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="100%" height="100%" fill="%2318352b"/><rect x="150" y="120" width="300" height="160" rx="20" fill="%235c9686"/><text x="300" y="365" font-family="sans-serif" font-size="22" font-weight="bold" fill="%23d7ee85" text-anchor="middle">🍲 Catered Rice %26 Trays</text></svg>',
-    name: 'Catered Rice & Trays',
-  },
-];
-
 // Default Restaurant Menu Items for Quick Multi-Item Surplus Selection
 const initialMenuItems = [
   { id: 'm1', name: 'Dal Makhani Container', unit: 'KG', defaultQty: 0 },
@@ -158,6 +138,11 @@ export default function FoodDonorScreen() {
   const [selectedDonorType, setSelectedDonorType] = useState('restaurant');
   const [contactPerson, setContactPerson] = useState('Rahul Sharma');
   const [contactPhone, setContactPhone] = useState('+91 98765 43210');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   // Location & Address State
   const [streetAddress, setStreetAddress] = useState('42 Commercial Street, Indiranagar');
@@ -169,7 +154,12 @@ export default function FoodDonorScreen() {
   const [gpsCoordinates, setGpsCoordinates] = useState<string | null>(null);
 
   // Photo & Camera State
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(sampleFoodPhotos[0].url);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  // Food Vision (AI Detection) State
+  const [visionAnalyzing, setVisionAnalyzing] = useState(false);
+  const [visionResult, setVisionResult] = useState<FoodVisionItem | null>(null);
+  const [visionModalVisible, setVisionModalVisible] = useState(false);
 
   // Single Item Donation Form State
   const [foodTitle, setFoodTitle] = useState('');
@@ -231,9 +221,112 @@ export default function FoodDonorScreen() {
     }
   };
 
+  // Complete onboarding - register user and create donor profile
+  const handleCompleteOnboarding = async () => {
+    // Validate required fields
+    if (!donorName.trim()) {
+      setAuthError('Please enter your donor/shop name');
+      return;
+    }
+    if (!contactPhone.trim()) {
+      setAuthError('Please enter a phone number');
+      return;
+    }
+    if (!email.trim()) {
+      setAuthError('Please enter an email address');
+      return;
+    }
+    if (!password) {
+      setAuthError('Please enter a password');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError('Password must be at least 6 characters');
+      return;
+    }
+    if (!streetAddress.trim()) {
+      setAuthError('Please enter your street address');
+      return;
+    }
+    if (!city.trim()) {
+      setAuthError('Please enter your city');
+      return;
+    }
+    if (!pincode.trim()) {
+      setAuthError('Please enter your pincode');
+      return;
+    }
+    if (!gpsCoordinates) {
+      setAuthError('Please detect your GPS location first');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      // Parse GPS coordinates
+      const latLng = gpsCoordinates.split(', ');
+      const latitude = parseFloat(latLng[0].replace('° N', ''));
+      const longitude = parseFloat(latLng[1].replace('° E', ''));
+
+      // Parse pickup window
+      const pickupMatch = pickupWindow.match(/(\d+)–(\d+)/);
+      const pickupStart = pickupMatch ? pickupMatch[1] : '12';
+      const pickupEnd = pickupMatch ? pickupMatch[2] : '14';
+
+      // 1. Register user
+      const registerResult = await appStore.register({
+        email,
+        password,
+        name: contactPerson,
+        phone: contactPhone,
+        role: 'DONOR',
+      });
+
+      if (!registerResult.success) {
+        setAuthError(registerResult.error || 'Registration failed');
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // 2. Create donor profile using api client (has auth token)
+      await api.request('/donors/profile', {
+        method: 'POST',
+        requiresAuth: true,
+        body: JSON.stringify({
+          business_name: donorName,
+          business_type: selectedDonorType,
+          address: streetAddress,
+          city,
+          pincode,
+          latitude,
+          longitude,
+          pickup_window_start: `${pickupStart}:00`,
+          pickup_window_end: `${pickupEnd}:00`,
+        }),
+      });
+
+      // Success - store will be updated via appStore.register
+      setIsOnboarded(true);
+      setActiveTab('donate');
+      setAuthError(null);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Setup failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   // Camera & Gallery Image Picker Handler
   const handlePickImage = async (useCamera = false) => {
     try {
+      let uri: string | null = null;
+
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
@@ -246,7 +339,7 @@ export default function FoodDonorScreen() {
           aspect: [4, 3],
         });
         if (!result.canceled && result.assets[0].uri) {
-          setSelectedPhoto(result.assets[0].uri);
+          uri = result.assets[0].uri;
         }
       } else {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -256,13 +349,53 @@ export default function FoodDonorScreen() {
           aspect: [4, 3],
         });
         if (!result.canceled && result.assets[0].uri) {
-          setSelectedPhoto(result.assets[0].uri);
+          uri = result.assets[0].uri;
         }
       }
+
+      if (uri) {
+        setSelectedPhoto(uri);
+        setVisionResult(null);
+        await analyzeSelectedPhoto(uri);
+      }
     } catch (err) {
-      // Fallback
-      setSelectedPhoto(sampleFoodPhotos[1].url);
+      Alert.alert('Error', 'Could not pick the image. Please try again.');
     }
+  };
+
+  // Run Gemini vision analysis on the picked food photo
+  const analyzeSelectedPhoto = async (uri: string) => {
+    setVisionAnalyzing(true);
+    setVisionModalVisible(true);
+    try {
+      const res = await api.analyzeFoodImage(uri);
+      setVisionResult(res.item);
+    } catch (err) {
+      setVisionResult(null);
+      Alert.alert(
+        'Vision Analysis Failed',
+        err instanceof Error ? err.message : 'Could not analyze the food photo.'
+      );
+    } finally {
+      setVisionAnalyzing(false);
+    }
+  };
+
+  // Apply accepted vision-detected food details into the donation form
+  const handleApplyVisionResult = (item: FoodVisionItem) => {
+    setVisionResult(item);
+    setVisionModalVisible(false);
+    setFoodTitle(item.title);
+    setFoodCategory(item.category);
+    setVegTag(item.dietary_tag);
+    Alert.alert(
+      'Food Details Detected',
+      `"${item.title}" • ${item.category} • ${item.dietary_tag} has been filled in automatically. Review the form and publish.`
+    );
+  };
+
+  const handleDismissVision = () => {
+    setVisionModalVisible(false);
   };
 
   // Multi-Item Menu Quantity Increment / Decrement
@@ -311,7 +444,7 @@ export default function FoodDonorScreen() {
       shelfLife: 'Best within 4 hours',
       address: `${streetAddress}, ${city}`,
       status: 'matching',
-      photoUrl: selectedPhoto || sampleFoodPhotos[0].url,
+      photoUrl: selectedPhoto || '',
       vegTag: 'Veg' as const,
       postedAgo: 'Just now',
     };
@@ -381,7 +514,7 @@ export default function FoodDonorScreen() {
       shelfLife: shelfLife || 'Consume within 4 hours',
       address: `${streetAddress}, ${city}`,
       status: 'matching' as const,
-      photoUrl: selectedPhoto || sampleFoodPhotos[0].url,
+      photoUrl: selectedPhoto || '',
       vegTag: vegTag,
       postedAgo: 'Just now',
     };
@@ -468,6 +601,12 @@ export default function FoodDonorScreen() {
                   Register your kitchen or shop once to connect surplus food with local shelters.
                 </Text>
 
+                {authError && (
+                  <View style={styles.errorBanner}>
+                    <Text style={styles.errorText}>{authError}</Text>
+                  </View>
+                )}
+
                 <Text style={styles.inputLabel}>DONOR / SHOP NAME *</Text>
                 <TextInput
                   style={styles.inputField}
@@ -525,6 +664,44 @@ export default function FoodDonorScreen() {
                       placeholderTextColor={AppColors.textMuted}
                     />
                   </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="owner@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      placeholderTextColor={AppColors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>PASSWORD</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Create a password"
+                      secureTextEntry
+                      placeholderTextColor={AppColors.textMuted}
+                    />
+                  </View>
+                </View>
+
+                <View style={{ marginTop: 4 }}>
+                  <Text style={styles.inputLabel}>CONFIRM PASSWORD</Text>
+                  <TextInput
+                    style={styles.inputField}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm your password"
+                    secureTextEntry
+                    placeholderTextColor={AppColors.textMuted}
+                  />
                 </View>
 
                 <TouchableOpacity
@@ -663,14 +840,16 @@ export default function FoodDonorScreen() {
                   <TouchableOpacity
                     style={[styles.primaryBtn, { flex: 2 }]}
                     activeOpacity={0.85}
-                    onPress={() => {
-                      setIsOnboarded(true);
-                      setActiveTab('donate');
-                      // Register donor session in shared store
-                      appStore.setDonorSession(donorName, selectedDonorType);
-                    }}>
-                    <Text style={styles.primaryBtnText}>Complete Setup & Unlock</Text>
-                    <Check size={16} color="#ffffff" />
+                    onPress={handleCompleteOnboarding}
+                    disabled={isAuthLoading}>
+                    {isAuthLoading ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <>
+                        <Text style={styles.primaryBtnText}>Complete Setup & Unlock</Text>
+                        <Check size={16} color="#ffffff" />
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -758,12 +937,17 @@ export default function FoodDonorScreen() {
                     <View style={styles.photoPreviewCard}>
                       <Image
                         source={{ uri: selectedPhoto }}
-                        placeholder={{ uri: sampleFoodPhotos[0].fallbackDataUri }}
                         style={styles.photoImage}
                         contentFit="cover"
                         transition={200}
                       />
                       <View style={styles.photoOverlayBar}>
+                        {visionAnalyzing && (
+                          <View style={styles.analyzingPill}>
+                            <ActivityIndicator size="small" color="#ffffff" />
+                            <Text style={styles.analyzingPillText}>Detecting Food…</Text>
+                          </View>
+                        )}
                         <TouchableOpacity
                           style={styles.photoActionBtn}
                           onPress={() => setSelectedPhoto(null)}>
@@ -790,38 +974,17 @@ export default function FoodDonorScreen() {
                     </View>
                   )}
 
-                  {/* SELECTABLE PRESET SAMPLE PHOTOS */}
-                  <Text style={styles.presetLabel}>Or tap a sample photo to select:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
-                    {sampleFoodPhotos.map((item) => {
-                      const isSelected = selectedPhoto === item.url || selectedPhoto === item.fallbackDataUri;
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[
-                            styles.presetThumbBox,
-                            isSelected && { borderColor: '#18352b', borderWidth: 2.5 },
-                          ]}
-                          onPress={() => setSelectedPhoto(item.url || item.fallbackDataUri)}>
-                          <Image
-                            source={{ uri: item.url }}
-                            placeholder={{ uri: item.fallbackDataUri }}
-                            style={styles.presetThumb}
-                            contentFit="cover"
-                            transition={150}
-                          />
-                          {isSelected && (
-                            <View style={styles.selectedBadgeCheck}>
-                              <Check size={12} color="#ffffff" />
-                            </View>
-                          )}
-                          <Text style={styles.presetThumbTitle} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
+                  {visionResult && !visionAnalyzing && (
+                    <TouchableOpacity
+                      style={styles.detectedBanner}
+                      onPress={() => setVisionModalVisible(true)}>
+                      <Sparkles size={15} color="#18352b" />
+                      <Text style={styles.detectedBannerText}>
+                        Detected: {visionResult.title} • {visionResult.category} ({visionResult.dietary_tag})
+                      </Text>
+                      <Text style={styles.detectedBannerEdit}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* 2. FOOD DETAILS & CATEGORY */}
@@ -1231,6 +1394,21 @@ export default function FoodDonorScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* FOOD VISION DETECTION MODAL */}
+      <FoodVisionResult
+        visible={visionModalVisible}
+        photoUri={selectedPhoto}
+        item={visionResult}
+        analyzing={visionAnalyzing}
+        onApply={handleApplyVisionResult}
+        onRetake={() => {
+          setVisionModalVisible(false);
+        }}
+        onManual={() => {
+          setVisionModalVisible(false);
+        }}
+      />
     </View>
   );
 }
@@ -1335,7 +1513,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  onboardingCard: {
+onboardingCard: {
     backgroundColor: '#f7f7f2',
     borderRadius: AppRadius.xl,
     padding: AppSpacing.xl,
@@ -1344,6 +1522,21 @@ const styles = StyleSheet.create({
     gap: 12,
     boxShadow: '6px 6px 14px rgba(48,69,58,.11)',
   },
+  errorBanner: {
+    backgroundColor: '#ffe6e6',
+    borderWidth: 1,
+    borderColor: '#ffcccc',
+    borderRadius: AppRadius.md,
+    padding: AppSpacing.md,
+    marginBottom: AppSpacing.sm,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#c0392b',
+    textAlign: 'center',
+  },
+
   cardHeroHeader: {
     flexDirection: 'row',
     alignItems: 'center',

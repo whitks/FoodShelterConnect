@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { appStore, useAppStore } from '@/store/appStore';
+import { api } from '@/api/client';
 import {
   ArrowRight,
   Bike,
@@ -109,6 +111,8 @@ export default function ShelterScreen() {
   // Auth Inputs
   const [authEmail, setAuthEmail] = useState('contact@harborhouse.org');
   const [authPassword, setAuthPassword] = useState('••••••••');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Profile Inputs
   const [ngoName, setNgoName] = useState('Harbor House Shelter');
@@ -185,17 +189,121 @@ export default function ShelterScreen() {
   };
 
   // Sign In Direct Handler
-  const handleSignIn = () => {
-    if (authEmail.trim()) {
-      setIsAuthenticated(true);
-      setActiveTab('request');
+  const handleSignIn = async () => {
+    if (!authEmail.trim() || !authPassword.trim()) {
+      setAuthError('Please enter email and password');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const result = await appStore.login(authEmail, authPassword);
+      if (result.success) {
+        setIsAuthenticated(true);
+        setActiveTab('request');
+      } else {
+        setAuthError(result.error || 'Sign in failed');
+      }
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Sign in failed');
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
   // Finish Onboarding Registration Handler
-  const handleFinishOnboarding = () => {
-    setIsAuthenticated(true);
-    setActiveTab('request');
+  const handleFinishOnboarding = async () => {
+    // Validate required fields
+    if (!ngoName.trim()) {
+      setAuthError('Please enter your NGO/shelter name');
+      return;
+    }
+    if (!contactPerson.trim()) {
+      setAuthError('Please enter contact person name');
+      return;
+    }
+    if (!contactPhone.trim()) {
+      setAuthError('Please enter a phone number');
+      return;
+    }
+    if (!authEmail.trim()) {
+      setAuthError('Please enter an email address');
+      return;
+    }
+    if (!authPassword.trim()) {
+      setAuthError('Please enter a password');
+      return;
+    }
+    if (authPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters');
+      return;
+    }
+    if (!streetAddress.trim()) {
+      setAuthError('Please enter your street address');
+      return;
+    }
+    if (!city.trim()) {
+      setAuthError('Please enter your city');
+      return;
+    }
+    if (!pincode.trim()) {
+      setAuthError('Please enter your pincode');
+      return;
+    }
+    if (!gpsCoordinates) {
+      setAuthError('Please detect your GPS location first');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      // Parse GPS coordinates
+      const latLng = gpsCoordinates.split(', ');
+      const latitude = parseFloat(latLng[0].replace('° N', ''));
+      const longitude = parseFloat(latLng[1].replace('° E', ''));
+
+      // 1. Register user
+      const registerResult = await appStore.register({
+        email: authEmail,
+        password: authPassword,
+        name: contactPerson,
+        phone: contactPhone,
+        role: 'SHELTER',
+      });
+
+      if (!registerResult.success) {
+        setAuthError(registerResult.error || 'Registration failed');
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // 2. Create shelter profile using api client
+      await api.request('/shelters/profile', {
+        method: 'POST',
+        requiresAuth: true,
+        body: JSON.stringify({
+          ngo_name: ngoName,
+          address: streetAddress,
+          lat: latitude,
+          lng: longitude,
+          area_zone: city, // using city as area_zone
+          avg_daily_beneficiaries: parseInt(maxCapacity.replace(/\D/g, '')) || 100,
+        }),
+      });
+
+      // Success
+      setIsAuthenticated(true);
+      setActiveTab('request');
+      setAuthError(null);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Setup failed. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   // Submit Food Requirement Request
@@ -303,6 +411,12 @@ export default function ShelterScreen() {
                   Sign in to request food surplus and track active deliveries for your shelter.
                 </Text>
 
+                {authError && (
+                  <View style={styles.errorBanner}>
+                    <Text style={styles.errorText}>{authError}</Text>
+                  </View>
+                )}
+
                 <Text style={styles.inputLabel}>NGO EMAIL ADDRESS</Text>
                 <View style={styles.inputIconWrapper}>
                   <Mail size={16} color={AppColors.textMuted} style={styles.inputIcon} />
@@ -386,6 +500,12 @@ export default function ShelterScreen() {
                       Set up your shelter name and type so nearby donors can match food surplus accurately.
                     </Text>
 
+                    {authError && (
+                      <View style={styles.errorBanner}>
+                        <Text style={styles.errorText}>{authError}</Text>
+                      </View>
+                    )}
+
                     <Text style={styles.inputLabel}>NGO / SHELTER NAME *</Text>
                     <TextInput
                       style={styles.inputField}
@@ -453,7 +573,7 @@ export default function ShelterScreen() {
                       style={styles.primaryBtn}
                       activeOpacity={0.85}
                       onPress={() => setOnboardingStep(2)}>
-                      <Text style={styles.primaryBtnText}>Next: Location & Capacity $\rightarrow$</Text>
+                      <Text style={styles.primaryBtnText}>Next: Location & Capacity </Text>
                       <ArrowRight size={16} color="#ffffff" />
                     </TouchableOpacity>
                   </View>
@@ -1027,6 +1147,20 @@ const styles = StyleSheet.create({
     borderColor: '#dce2d8',
     gap: 12,
     boxShadow: '6px 6px 14px rgba(48,69,58,.11)',
+  },
+  errorBanner: {
+    backgroundColor: '#ffe6e6',
+    borderWidth: 1,
+    borderColor: '#ffcccc',
+    borderRadius: AppRadius.md,
+    padding: AppSpacing.md,
+    marginBottom: AppSpacing.sm,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#c0392b',
+    textAlign: 'center',
   },
   cardHeaderRow: {
     flexDirection: 'row',

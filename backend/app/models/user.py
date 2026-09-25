@@ -28,3 +28,4 @@ class User(Base):
     is_trusted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     shelter_profile = relationship("ShelterProfile", back_populates="user", uselist=False)
+    donor_profile = relationship("DonorProfile", back_populates="user", uselist=False)

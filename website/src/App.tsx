@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { useState } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
@@ -6,12 +7,38 @@ import {
   CheckCircle2, Clock3, HeartHandshake, MapPin, Menu, Minus, Package,
   PackageCheck, Plus, Recycle, RefreshCw, ShieldCheck, Sparkles, Store,
   Truck, Utensils, User, X,
+=======
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Outlet } from 'react-router-dom';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Bike,
+  Building2,
+  Calculator,
+  Check,
+  HeartHandshake,
+  MapPin,
+  PackageCheck,
+  Recycle,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  Users,
+  Utensils,
+  X,
+  LayoutDashboard,
+  LogOut,
+  User as UserIcon
+>>>>>>> Stashed changes
 } from 'lucide-react';
+import { api, type User } from './api';
 import './index.css';
 
 type Role = 'donor' | 'shelter' | 'volunteer';
 type DonorTab = 'donate' | 'basket' | 'active' | 'needs';
 
+<<<<<<< Updated upstream
 const donorTypes = [
   ['restaurant', 'Restaurant / Cafe', 'Bistros, cafes, bakeries & fine dining', Utensils],
   ['grocery', 'Grocery Shop', 'Supermarkets, marts & produce stores', Store],
@@ -47,8 +74,325 @@ function RevealSection({ children, className, id }: { children: React.ReactNode;
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.18 });
   return <section ref={ref} className={`${className} scroll-reveal${inView ? ' is-visible' : ''}`} id={id}>{children}</section>;
 }
+=======
+const roles = [
+  {
+    icon: Utensils,
+    eyebrow: 'For food businesses',
+    title: 'Turn today\'s extra into someone\'s next meal.',
+    text: 'Post surplus in 60 seconds, set pickup windows, and get certified tax deduction logs.',
+    link: 'Start donating',
+    tone: '#eef6d4',
+    type: 'donor',
+  },
+  {
+    icon: Building2,
+    eyebrow: 'For shelters & orgs',
+    title: 'Bring fresh surplus directly to your community.',
+    text: 'Specify what capacity and storage you have. Get linked to nearby kitchens and bakeries.',
+    link: 'Join the network',
+    tone: '#f8f8f2',
+    type: 'shelter',
+  },
+  {
+    icon: Bike,
+    eyebrow: 'For volunteers',
+    title: 'Make one small 15-min trip matter.',
+    text: 'Accept rescue routes near your location, follow turn-by-turn directions, and see impact live.',
+    link: 'Rescue a route',
+    tone: '#f8f8f2',
+    type: 'volunteer',
+  },
+];
+>>>>>>> Stashed changes
+
+function ProtectedRoute() {
+  const navigate = useNavigate();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!api.isAuthenticated()) {
+      navigate('/login');
+    }
+    setChecking(false);
+  }, [navigate]);
+
+  if (checking) {
+    return (
+      <div className="root-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center', color: '#607169' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  return api.isAuthenticated() ? <Outlet /> : <Navigate to="/login" />;
+}
+
+function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await api.login(email, password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="root-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+      <div className="auth-card" style={{ width: '100%', maxWidth: '420px', background: '#f7f7f2', borderRadius: '20px', padding: '2.5rem', border: '1px solid #dce2d8', boxShadow: '6px 6px 14px rgba(48,69,58,.11)' }}>
+        <div className="card-header" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div className="brand-badge" style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#d7ee85', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <Recycle size={22} color="#18352b" strokeWidth={2.6} />
+          </div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#18352b', margin: '0 0 0.5rem' }}>Welcome Back</h1>
+          <p style={{ color: '#6c7b73', margin: 0 }}>Sign in to access your dashboard</p>
+        </div>
+
+        {error && (
+          <div style={{ backgroundColor: '#ffe6e6', border: '1px solid #ffcccc', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.5rem', color: '#c0392b', fontSize: '0.9rem', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#18352b', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>EMAIL ADDRESS</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+              style={{
+                width: '100%',
+                padding: '0.875rem 1rem',
+                borderRadius: '12px',
+                border: '1px solid #dce2d8',
+                backgroundColor: '#faf9f5',
+                fontSize: '1rem',
+                color: '#18352b',
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '1.75rem' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#18352b', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>PASSWORD</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              style={{
+                width: '100%',
+                padding: '0.875rem 1rem',
+                borderRadius: '12px',
+                border: '1px solid #dce2d8',
+                backgroundColor: '#faf9f5',
+                fontSize: '1rem',
+                color: '#18352b',
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="primary-button"
+            style={{
+              width: '100%',
+              padding: '1rem',
+              borderRadius: '12px',
+              backgroundColor: '#18352b',
+              color: '#ffffff',
+              fontSize: '1rem',
+              fontWeight: 800,
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In & Open Portal'}
+            <ArrowRight size={16} color="#ffffff" />
+          </button>
+        </form>
+
+        <p style={{ marginTop: '1.5rem', textAlign: 'center', color: '#6c7b73', fontSize: '0.9rem' }}>
+          New here? <a href="/" style={{ color: '#18352b', fontWeight: 700 }}>Join the network</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = api.getStoredUser();
+    if (stored) {
+      setUser(stored);
+      setLoading(false);
+    } else {
+      api.getMe()
+        .then(u => {
+          setUser(u);
+          setLoading(false);
+        })
+        .catch(() => {
+          api.logout();
+          navigate('/login');
+        });
+    }
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="root-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center', color: '#607169' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  const handleLogout = () => {
+    api.logout();
+    navigate('/login');
+  };
+
+  const roleLabels: Record<string, string> = {
+    donor: 'Food Donor',
+    shelter: 'Shelter / NGO',
+    volunteer: 'Volunteer Driver',
+    admin: 'Administrator',
+  };
+
+  return (
+    <div className="root-container">
+      <nav className="nav-bar">
+        <div className="brand-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+          <div className="brand-badge">
+            <Recycle size={18} color="#18352b" strokeWidth={2.6} />
+          </div>
+          <div className="brand-text">
+            rescue<span className="brand-dot">.</span>
+          </div>
+        </div>
+        <div className="desktop-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+            <LayoutDashboard size={18} /> Dashboard
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.5rem 1rem', backgroundColor: '#f7f7f2', borderRadius: '9999px', border: '1px solid #dce2d8' }}>
+            <UserIcon size={16} color="#18352b" />
+            <span style={{ fontSize: '0.85rem', color: '#18352b' }}>{user?.name || 'User'}</span>
+            <span style={{ color: '#6c7b73', fontSize: '0.7rem', textTransform: 'capitalize' }}>{roleLabels[user?.role || ''] || user?.role}</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.5rem 1rem',
+              borderRadius: '9999px',
+              backgroundColor: '#fff',
+              border: '1px solid #dce2d8',
+              color: '#18352b',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+          >
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
+      </nav>
+
+      <main style={{ padding: '4rem 2rem', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ marginBottom: '3rem' }}>
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Welcome back, {user?.name || 'User'}</h1>
+          <p style={{ color: '#607169', fontSize: '1.1rem' }}>Your <strong>{roleLabels[user?.role || ''] || user?.role}</strong> dashboard</p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: '#d7ee85', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+              <Utensils size={20} color="#18352b" />
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>New Donation</h3>
+            <p style={{ color: '#607169', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>Post a new food surplus batch to be rescued by nearby volunteers.</p>
+            <button className="primary-button" style={{ width: '100%', justifyContent: 'center' }}>
+              Create Listing <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: '#e6e0ef', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+              <Check size={20} color="#8871a4" />
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>Your Impact</h3>
+            <p style={{ color: '#607169', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>See how many meals you've provided and your CO2 savings.</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+              <span style={{ fontSize: '2rem', fontWeight: 800 }}>120</span>
+              <span style={{ color: '#607169', paddingBottom: '0.4rem', fontWeight: 600 }}>meals shared</span>
+            </div>
+          </div>
+
+          <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: '#f9ddcb', width: 40, height: 40, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+              <ShieldCheck size={20} color="#d68154" />
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>Active Rescues</h3>
+            <p style={{ color: '#607169', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>Track live deliveries and manage pickup coordination.</p>
+            <button className="secondary-button" style={{ width: '100%', justifyContent: 'center' }}>
+              View Rescues <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 function LandingPage() {
+<<<<<<< Updated upstream
+=======
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('donor');
+  const [formSubmitted, setFormSubmitted] = useState(false);
+
+  // Form states
+  const [orgName, setOrgName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+
+  // Calculator states
+  const [kgPerDay, setKgPerDay] = useState('25');
+  const numericKg = parseFloat(kgPerDay) || 0;
+  const estimatedMealsMonthly = Math.round(numericKg * 2.2 * 30);
+  const estimatedCo2Saved = Math.round(numericKg * 2.5 * 30);
+
+>>>>>>> Stashed changes
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeRole, setActiveRole] = useState<Role>('donor');
@@ -122,6 +466,7 @@ function DonorPortal() {
     setBasket({}); setTab('active'); showNotice('Surplus basket published successfully.');
   };
 
+<<<<<<< Updated upstream
   return <div className="portal"><header className="portal-header shell-width"><Brand onClick={() => navigate('/')} /><div className="portal-heading"><span className="eyebrow">FOOD DONOR HUB</span><strong>{onboarded ? donorName : 'Setup your donor profile'}</strong></div><button className="portal-home" onClick={() => navigate('/dashboard')}>Dashboard <ArrowRight size={15} /></button></header><main className="portal-main shell-width">
     {!onboarded ? <div className="setup-layout"><div className="setup-intro"><span className="eyebrow"><Sparkles size={13} /> DONOR ONBOARDING</span><h1>Give surplus<br /><em>a destination.</em></h1><p>Register your kitchen once. After that, every rescue takes less than a minute to post.</p><div className="setup-promise"><CheckCircle2 size={18} /><span><strong>Verified local network</strong><small>Matched to shelters within 4 km</small></span></div><div className="setup-promise"><ShieldCheck size={18} /><span><strong>Impact logs included</strong><small>Track every meal you help share</small></span></div></div><div className="portal-card setup-card"><div className="portal-progress"><span>SETUP STEP {setupStep} OF 2</span><strong>{setupStep === 1 ? '50%' : '100%'}</strong><i><b style={{ width: setupStep === 1 ? '50%' : '100%' }} /></i></div>{setupStep === 1 ? <><div className="card-heading"><Sparkles size={20} /><div><h2>Welcome to Rescue Donor Hub</h2><p>Tell us who is sharing food today.</p></div></div><Field label="DONOR / SHOP NAME *" value={donorName} onChange={setDonorName} placeholder="e.g. Royal Spice Bistro" /><label className="portal-label">SELECT YOUR DONOR TYPE *</label><div className="donor-type-grid">{donorTypes.map(([id, label, description, Icon]) => <button className={donorType === id ? 'donor-type selected' : 'donor-type'} key={id} onClick={() => setDonorType(id)}><span><Icon size={17} /></span><b>{label}</b><small>{description}</small>{donorType === id && <Check size={17} />}</button>)}</div><div className="field-row"><Field label="CONTACT PERSON" value={contactPerson} onChange={setContactPerson} placeholder="Rahul Sharma" /><Field label="PHONE NUMBER" value={phone} onChange={setPhone} placeholder="+91 98765 43210" /></div><button className="portal-primary" onClick={() => setSetupStep(2)}>Next: location & pickup address <ArrowRight size={16} /></button></> : <><div className="card-heading"><MapPin size={20} /><div><h2>Pickup address & GPS</h2><p>Help verified drivers find your handoff door.</p></div></div><button className="gps-button" onClick={() => detectBrowserLocation((_latitude, _longitude, place) => { setAddress(place.name); setCity(place.city); setPincode(place.postalCode); showNotice('Location detected: ' + place.name + ', ' + place.city); })}><MapPin size={17} /> Detect my live GPS location</button><Field label="STREET ADDRESS & LANDMARK *" value={address} onChange={setAddress} placeholder="42 Commercial Street" /><div className="field-row"><Field label="CITY *" value={city} onChange={setCity} placeholder="Bengaluru" /><Field label="PINCODE *" value={pincode} onChange={setPincode} placeholder="560038" /></div><label className="portal-label">PREFERRED DAILY PICKUP WINDOW</label><select className="portal-input" value={pickup} onChange={(event) => setPickup(event.target.value)}><option>Morning (7–10 AM)</option><option>Lunch (12–2 PM)</option><option>Afternoon (2–4 PM)</option><option>Evening (5–7 PM)</option><option>Dinner (8–10 PM)</option><option>Anytime (Call us)</option></select><div className="form-actions"><button className="portal-secondary" onClick={() => setSetupStep(1)}>Back</button><button className="portal-primary" onClick={() => setOnboarded(true)}>Complete setup & unlock <Check size={16} /></button></div></>}</div></div> : <div><div className="active-profile"><span className="status-dot green" /><div><strong>{donorName}</strong><small>{donorTypes.find(([id]) => id === donorType)?.[1]} · {address}, {city} · Pickup {pickup}</small></div><button onClick={() => { setOnboarded(false); setSetupStep(1); }}>Edit setup</button></div><div className="portal-tabs">{([['donate', 'Single item', Plus], ['basket', `Basket (${totalItems})`, Package], ['active', `Active (${donations.length})`, Clock3], ['needs', 'NGO needs (2)', HeartHandshake]] as const).map(([id, label, Icon]) => <button className={tab === id ? 'portal-tab active' : 'portal-tab'} key={id} onClick={() => setTab(id)}><Icon size={15} /> {label}</button>)}</div>{tab === 'donate' && <div className="portal-card form-card"><PortalTitle icon={<Utensils size={18} />} title="Post a single food donation" copy="Share what is ready, how much you have, and how long it stays fresh." /><div className="photo-placeholder"><Camera size={23} /><div><strong>Food photo</strong><small>Choose a clear sample photo for shelters to inspect</small></div><button onClick={() => showNotice('Photo picker is ready for your next upload.')}>Choose photo</button></div><Field label="FOOD ITEM TITLE / MENU DESCRIPTION *" value={foodTitle} onChange={setFoodTitle} placeholder="e.g. Mixed Veg Curry, Dal Makhani & 40 Rotis" /><label className="portal-label">FOOD CATEGORY</label><div className="chip-row">{['Cooked Meals', 'Raw Produce', 'Bakery & Bread', 'Packaged Snacks', 'Dairy & Drinks'].map((item) => <button className={category === item ? 'choice selected' : 'choice'} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div><label className="portal-label">DIETARY TAG</label><div className="chip-row">{['Veg', 'Non-Veg', 'Egg'].map((item) => <button className={diet === item ? 'choice selected' : 'choice'} key={item} onClick={() => setDiet(item)}>{item === 'Veg' ? 'Pure Veg' : item}</button>)}</div><div className="field-row"><Field label="PREPARED WHEN? *" value={prepared} onChange={setPrepared} placeholder="Today at 1:30 PM" /><Field label="APPROXIMATE QUANTITY *" value={quantity} onChange={setQuantity} placeholder="Serves 30 people" /></div><Field label="SHELF LIFE / BEST BEFORE *" value={shelfLife} onChange={setShelfLife} placeholder="Best within 4 hours" /><Field label="SPECIAL PICKUP INSTRUCTIONS" value={notes} onChange={setNotes} placeholder="Rear kitchen entrance" textarea /><button className="portal-primary wide" onClick={publishDonation}>Publish surplus food donation <ArrowRight size={17} /></button></div>}{tab === 'basket' && <div className="portal-card form-card"><PortalTitle icon={<Package size={18} />} title="Menu surplus basket" copy="Add multiple dishes together, just like the Expo app basket flow." /><div className="add-item"><input value={customItem} onChange={(event) => setCustomItem(event.target.value)} placeholder="Add a custom dish, e.g. Shahi Paneer Tray" /><button onClick={() => { if (customItem.trim()) { updateQty(customItem, 1); setCustomItem(''); } }}>Add</button></div><div className="menu-grid">{menuItems.map(([id, name, unit]) => <div className={basket[id] ? 'menu-item selected' : 'menu-item'} key={id}><div><strong>{name}</strong><small>Unit: {unit}</small></div><span><button onClick={() => updateQty(id, -1)}><Minus size={14} /></button><b>{basket[id] || 0}</b><button onClick={() => updateQty(id, 1)}><Plus size={14} /></button></span></div>)}{Object.keys(basket).filter((id) => !menuItems.some(([itemId]) => itemId === id)).map((id) => <div className="menu-item selected" key={id}><div><strong>{id}</strong><small>Unit: Portions</small></div><span><button onClick={() => updateQty(id, -1)}><Minus size={14} /></button><b>{basket[id]}</b><button onClick={() => updateQty(id, 1)}><Plus size={14} /></button></span></div>)}</div><div className="basket-summary"><strong>Basket total: {totalItems} items</strong><small>Selected dishes will be matched to one nearby shelter.</small><button className="portal-primary" onClick={publishBasket}>Publish selected items <ArrowRight size={16} /></button></div></div>}{tab === 'active' && <div className="portal-card form-card"><PortalTitle icon={<Clock3 size={18} />} title="Active food donations" copy="Real-time matching status for the surplus you have posted." />{donations.map((item, index) => <div className="active-donation" key={`${item.title}-${index}`}><div className="donation-heading"><span className="food-thumb"><Utensils size={18} /></span><div><strong>{item.title}</strong><small>{item.quantity} · Posted {item.posted}</small></div><span className="matching-badge"><RefreshCw size={13} /> {item.status === 'matching' ? 'Matching' : item.status}</span></div><div className="delivery-line"><span className="status-dot green" /> Searching nearest verified shelter <i /><span>Driver assignment follows</span></div><div className="donation-meta"><span><Clock3 size={14} /> {shelfLife}</span><span><MapPin size={14} /> {address}, {city}</span></div></div>)}</div>}{tab === 'needs' && <div className="portal-card form-card"><PortalTitle icon={<HeartHandshake size={18} />} title="Shelter food requests" copy="Live needs broadcast by nearby NGOs and shelters." />{[['Harbor House Shelter', 'Need dinner meals for 80 residents', '80 people · Pure Veg · by 7:30 PM'], ['Sunrise Orphanage', 'Need lunch & snacks for 45 children', '45 children · Pure Veg · self pickup']].map(([name, title, meta]) => <div className="need-card" key={name}><span className="need-icon"><HeartHandshake size={18} /></span><div><strong>{name}</strong><h3>{title}</h3><small>{meta}</small></div><button onClick={() => { setFoodTitle(`Donation for: ${title}`); setTab('donate'); }}>Respond <ArrowRight size={14} /></button></div>)}</div>}</div>}</main>{notice && <div className="toast"><CheckCircle2 size={17} /> {notice}</div>}</div>;
 }
@@ -199,3 +544,299 @@ function Dashboard() {
 
 export default function App() { return <BrowserRouter><RoutesFallback /></BrowserRouter>; }
 function RoutesFallback() { return window.location.pathname === '/dashboard' ? <Dashboard /> : window.location.pathname === '/donor' ? <DonorPortal /> : window.location.pathname === '/shelter' ? <ShelterPortal /> : <LandingPage />; }
+=======
+  const handleSubmitForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (contactEmail.trim()) {
+      setFormSubmitted(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        navigate('/login');
+      }, 1500);
+    }
+  };
+
+  return (
+    <div className="root-container">
+      {/* Navigation */}
+      <nav className="nav-bar">
+        <div className="brand-row">
+          <div className="brand-badge">
+            <Recycle size={18} color="#18352b" strokeWidth={2.6} />
+          </div>
+          <div className="brand-text">
+            rescue<span className="brand-dot">.</span>
+          </div>
+        </div>
+
+        <div className="desktop-nav-links">
+          <button className="nav-link" onClick={() => handleOpenModal('donor')}>How it works</button>
+          <button className="nav-link" onClick={() => handleOpenModal('donor')}>Calculator</button>
+          <button className="nav-link" onClick={() => handleOpenModal('donor')}>For Businesses</button>
+          <button className="nav-cta" onClick={() => navigate('/login')}>
+            Sign In <ArrowUpRight size={14} />
+          </button>
+        </div>
+      </nav>
+
+      <main>
+        {/* Hero Section */}
+        <section className="hero-section">
+          <div className="eyebrow-badge">
+            <div className="pulse-dot"></div>
+            <span>LIVE ACROSS YOUR CITY</span>
+          </div>
+
+          <h1 className="hero-title">
+            Good food.<br />
+            <span className="hero-title-highlight">Right place.</span><br />
+            Right now.
+          </h1>
+
+          <p className="hero-subtitle">
+            Rescue connects surplus food from local kitchens and markets directly with shelters and people in need — before the clock runs out.
+          </p>
+
+          <div className="hero-actions">
+            <button className="primary-button" onClick={() => handleOpenModal('donor')}>
+              Donate surplus <ArrowRight size={16} />
+            </button>
+            <button className="secondary-button" onClick={() => handleOpenModal('shelter')}>
+              Join Shelter Network
+            </button>
+          </div>
+        </section>
+
+        {/* Ticker Banner */}
+        <div className="ticker-banner">
+          EVERY RESCUE COUNTS · <span className="ticker-highlight">23,841 KG</span> KEPT IN USE THIS MONTH · ♥ BUILT BY NEIGHBORS
+        </div>
+
+        {/* Problem Section */}
+        <section className="section-container">
+          <div className="eyebrow-badge"><span>THE GAP IS REAL</span></div>
+          <h2 className="section-title">
+            There is enough food.<br />
+            <span className="hero-title-highlight">It just needs to move.</span>
+          </h2>
+          <p className="section-body">
+            Every day, perfectly good food leaves commercial kitchens while community shelters nearby go without. The problem isn't willingness — it's the missing real-time connection between surplus, timing, distance, and capacity.
+          </p>
+          <div className="stat-pills-row">
+            <div className="stat-pill">
+              <div className="stat-value">40%</div>
+              <div className="stat-label">of food is wasted</div>
+            </div>
+            <div className="stat-pill">
+              <div className="stat-value">1 in 8</div>
+              <div className="stat-label">face food insecurity</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Calculator Section */}
+        <section className="section-container">
+          <div className="eyebrow-badge">
+            <Calculator size={14} style={{ marginRight: 6 }} />
+            <span>IMPACT ESTIMATOR</span>
+          </div>
+          <h2 className="section-title">
+            Calculate your<br />
+            <span className="hero-title-highlight">potential rescue.</span>
+          </h2>
+
+          <div className="calc-card">
+            <div className="calc-header">
+              <Utensils size={18} /> Daily Surplus Estimator
+            </div>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#6c7b73', marginBottom: '0.5rem', display: 'block' }}>Average Daily Surplus (in KG)</label>
+            <input
+              type="number"
+              className="calc-input"
+              value={kgPerDay}
+              onChange={e => setKgPerDay(e.target.value)}
+              placeholder="e.g. 25"
+            />
+            <div className="calc-results">
+              <div className="calc-result-box">
+                <div className="calc-result-val">{estimatedMealsMonthly.toLocaleString()}</div>
+                <div className="calc-result-sub">MEALS / MONTH</div>
+              </div>
+              <div className="calc-result-box">
+                <div className="calc-result-val">{estimatedCo2Saved.toLocaleString()} kg</div>
+                <div className="calc-result-sub">CO₂ PREVENTED</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Steps Section */}
+        <section className="section-container">
+          <div className="eyebrow-badge"><span>THE RESCUE NETWORK</span></div>
+          <h2 className="section-title">
+            From surplus<br />
+            <span className="hero-title-highlight">to shared.</span>
+          </h2>
+          <p className="section-body">
+            Not a static directory. A live mobile coordination layer for the exact moments when food needs somewhere to go — right now.
+          </p>
+
+          <div className="steps-grid">
+            {steps.map(step => {
+              const Icon = step.icon;
+              return (
+                <div key={step.number} className="step-card">
+                  <div className="step-number">{step.number}</div>
+                  <div className="step-icon" style={{ background: step.bgColor }}>
+                    <Icon color={step.iconColor} size={20} />
+                  </div>
+                  <div className="step-title">{step.title}</div>
+                  <div className="step-desc">{step.text}</div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Roles Section */}
+        <section className="section-container">
+          <div className="eyebrow-badge"><span>THERE'S A PLACE FOR YOU HERE</span></div>
+          <h2 className="section-title">
+            Many hands.<br />
+            <span className="hero-title-highlight">One shared table.</span>
+          </h2>
+
+          <div className="roles-stack">
+            {roles.map(role => {
+              const Icon = role.icon;
+              return (
+                <div key={role.title} className="role-card" style={{ background: role.tone }}>
+                  <Icon size={24} color="#18352b" style={{ marginBottom: '1rem' }} />
+                  <div className="role-eyebrow">{role.eyebrow}</div>
+                  <div className="role-title">{role.title}</div>
+                  <div className="role-desc">{role.text}</div>
+                  <button onClick={() => handleOpenModal(role.type)} style={{ background: 'none', border: 'none', padding: 0, fontWeight: 'bold', color: '#18352b', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    {role.link} <ArrowRight size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Impact Section */}
+        <section className="section-container">
+          <div className="eyebrow-badge"><span>SMALL ACTIONS, VISIBLE CHANGE</span></div>
+          <h2 className="section-title">
+            The numbers<br />
+            <span className="hero-title-highlight">tell the story.</span>
+          </h2>
+
+          <div className="impact-grid">
+            <div className="impact-card">
+              <PackageCheck size={24} color="#80a542" style={{ marginBottom: '1rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>186,420</div>
+              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>kg food rescued</div>
+            </div>
+            <div className="impact-card">
+              <HeartHandshake size={24} color="#d87d51" style={{ marginBottom: '1rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>421,800</div>
+              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>meals shared</div>
+            </div>
+            <div className="impact-card">
+              <ShieldCheck size={24} color="#639486" style={{ marginBottom: '1rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>9,240</div>
+              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>successful rescues</div>
+            </div>
+            <div className="impact-card">
+              <Users size={24} color="#8a70a3" style={{ marginBottom: '1rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#18352b' }}>480+</div>
+              <div style={{ fontSize: '0.9rem', color: '#607169', fontWeight: 'bold' }}>local partners</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Join CTA */}
+        <section className="section-container" style={{ padding: '2rem' }}>
+          <div className="join-card">
+            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0 0 1rem' }}>Let's make sure nothing good goes to waste.</h2>
+            <p style={{ margin: '0 0 2rem' }}>Start with one rescue. We handle connections, real-time coordination, and tax logs.</p>
+            <button className="primary-button" onClick={() => navigate('/login')}>
+              Join the Rescue network <ArrowRight size={16} />
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer className="footer">
+        © 2026 FoodShelter Connect · Rescue Web App
+      </footer>
+
+      {/* Modal */}
+      {modalVisible && (
+        <div className="modal-overlay" onClick={() => setModalVisible(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} color="#93ad32" />
+                <h3 style={{ margin: 0 }}>
+                  {selectedRole === 'donor'
+                    ? 'Donate Food Surplus'
+                    : selectedRole === 'shelter'
+                    ? 'Register Shelter / NGO'
+                    : 'Become Volunteer Driver'}
+                </h3>
+              </div>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModalVisible(false)}>
+                <X size={22} color="#18352b" />
+              </button>
+            </div>
+
+            {formSubmitted ? (
+              <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                <div style={{ background: '#18352b', width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                  <Check size={26} color="#ffffff" />
+                </div>
+                <h2>You're on the list!</h2>
+                <p>Redirecting you to sign in...</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitForm}>
+                <p style={{ color: '#607169', marginBottom: '1.5rem' }}>Submit your details to request immediate pickup or register your shelter.</p>
+
+                <div className="form-group">
+                  <label>ORGANIZATION / FULL NAME</label>
+                  <input type="text" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="e.g. Green Bakery or John Doe" />
+                </div>
+
+                <div className="form-group">
+                  <label>EMAIL ADDRESS</label>
+                  <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@example.com" required />
+                </div>
+
+                <button type="submit" className="modal-submit">
+                  Submit Request
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+>>>>>>> Stashed changes

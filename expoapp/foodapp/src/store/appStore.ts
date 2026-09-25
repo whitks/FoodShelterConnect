@@ -5,7 +5,9 @@
  * Screens subscribe via a simple listener pattern.
  */
 
-export type UserRole = 'donor' | 'shelter' | null;
+import { api, User, DonorProfile, ShelterProfile } from '@/api/client';
+
+export type UserRole = 'donor' | 'shelter' | 'volunteer' | null;
 
 export interface ActiveDonation {
   id: string;
@@ -21,11 +23,10 @@ export interface ActiveDonation {
   photoUrl: string;
   postedAgo: string;
   status: 'matching' | 'assigned' | 'picked' | 'delivered';
-  // Delivery details populated once assigned
   driverName?: string;
   assignedNgoName?: string;
   assignedNgoAddress?: string;
-  assignedAt?: number; // timestamp used to drive map animation
+  assignedAt?: number;
 }
 
 export interface ActiveRequest {
@@ -45,17 +46,24 @@ export interface ActiveRequest {
 
 interface AppState {
   currentRole: UserRole;
+  user: User | null;
+  donorProfile: DonorProfile | null;
+  shelterProfile: ShelterProfile | null;
   donorName: string;
   donorType: string;
   shelterName: string;
   shelterCategory: string;
   activeDonations: ActiveDonation[];
   activeRequests: ActiveRequest[];
+  isLoading: boolean;
+  error: string | null;
 }
 
-// Initial seed data so cross-views show something immediately
 const initialState: AppState = {
   currentRole: null,
+  user: null,
+  donorProfile: null,
+  shelterProfile: null,
   donorName: '',
   donorType: '',
   shelterName: '',
@@ -122,6 +130,8 @@ const initialState: AppState = {
       status: 'matching',
     },
   ],
+  isLoading: false,
+  error: null,
 };
 
 let state: AppState = { ...initialState };
@@ -132,16 +142,118 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
+function setRoleFromUser(user: User | null) {
+  if (!user) {
+    state = { ...state, currentRole: null, donorName: '', donorType: '', shelterName: '', shelterCategory: '' };
+    return;
+  }
+  // Backend now returns lowercase role
+  const role = user.role.toLowerCase();
+  switch (role) {
+    case 'donor':
+      state = { ...state, currentRole: 'donor' };
+      break;
+    case 'shelter':
+      state = { ...state, currentRole: 'shelter' };
+      break;
+    case 'volunteer':
+      state = { ...state, currentRole: 'volunteer' };
+      break;
+    default:
+      state = { ...state, currentRole: null };
+  }
+}
+
 export const appStore = {
   getState: (): AppState => state,
 
   subscribe: (listener: Listener) => {
     listeners.add(listener);
-    return () => listeners.delete(listener);
+    return () => {
+      listeners.delete(listener);
+    };
   },
 
-  setRole: (role: UserRole) => {
-    state = { ...state, currentRole: role };
+  async initialize() {
+    state = { ...state, isLoading: true };
+    notify();
+    try {
+      await api.init();
+      const storedUser = await api.getStoredUser();
+      if (storedUser && api.isAuthenticated()) {
+        try {
+          const freshUser = await api.getMe();
+          state = { ...state, user: freshUser };
+          setRoleFromUser(freshUser);
+          if (freshUser.donor_profile) {
+            state = { ...state, donorProfile: freshUser.donor_profile };
+          }
+          if (freshUser.shelter_profile) {
+            state = { ...state, shelterProfile: freshUser.shelter_profile };
+          }
+        } catch {
+          await api.clearAuth();
+          state = { ...state, user: null };
+          setRoleFromUser(null);
+        }
+      }
+    } catch (error) {
+      state = { ...state, error: 'Failed to initialize auth' };
+    } finally {
+      state = { ...state, isLoading: false };
+      notify();
+    }
+  },
+
+  async login(email: string, password: string) {
+    state = { ...state, isLoading: true, error: null };
+    notify();
+    try {
+      const { user } = await api.login(email, password);
+      state = { ...state, user };
+      setRoleFromUser(user);
+      if (user.donor_profile) {
+        state = { ...state, donorProfile: user.donor_profile };
+      }
+      if (user.shelter_profile) {
+        state = { ...state, shelterProfile: user.shelter_profile };
+      }
+      state = { ...state, isLoading: false };
+      notify();
+      return { success: true };
+    } catch (error) {
+      state = { ...state, isLoading: false, error: error instanceof Error ? error.message : 'Login failed' };
+      notify();
+      return { success: false, error: error instanceof Error ? error.message : 'Login failed' };
+    }
+  },
+
+  async register(data: { email: string; password: string; name: string; phone: string; role: 'donor' | 'shelter' | 'volunteer' }) {
+    state = { ...state, isLoading: true, error: null };
+    notify();
+    try {
+      const { user } = await api.register(data);
+      state = { ...state, user };
+      setRoleFromUser(user);
+      if (user.donor_profile) {
+        state = { ...state, donorProfile: user.donor_profile };
+      }
+      if (user.shelter_profile) {
+        state = { ...state, shelterProfile: user.shelter_profile };
+      }
+      state = { ...state, isLoading: false };
+      notify();
+      return { success: true };
+    } catch (error) {
+      state = { ...state, isLoading: false, error: error instanceof Error ? error.message : 'Registration failed' };
+      notify();
+      return { success: false, error: error instanceof Error ? error.message : 'Registration failed' };
+    }
+  },
+
+  async logout() {
+    await api.logout();
+    state = { ...state, currentRole: null, user: null, donorProfile: null, shelterProfile: null, donorName: '', donorType: '', shelterName: '', shelterCategory: '' };
     notify();
   },
 
@@ -152,11 +264,6 @@ export const appStore = {
 
   setShelterSession: (name: string, category: string) => {
     state = { ...state, shelterName: name, shelterCategory: category, currentRole: 'shelter' };
-    notify();
-  },
-
-  logout: () => {
-    state = { ...state, currentRole: null, donorName: '', shelterName: '' };
     notify();
   },
 
@@ -190,7 +297,8 @@ import { useEffect, useReducer } from 'react';
 export function useAppStore() {
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
-    return appStore.subscribe(forceUpdate);
+    const unsubscribe = appStore.subscribe(forceUpdate);
+    return () => unsubscribe();
   }, []);
   return appStore.getState();
 }
