@@ -16,7 +16,9 @@ import { File, Paths } from 'expo-file-system';
 import { AppColors, AppRadius, AppShadows, AppSpacing, AppTypography } from '@/constants/theme';
 
 // ─── Voice server endpoint ────────────────────────────────────────────────────
-// Override with EXPO_PUBLIC_VOICE_SERVER_URL (e.g. ws://192.168.1.10:8765) in .env.
+// Override with EXPO_PUBLIC_VOICE_SERVER_URL in .env, e.g.:
+//   dev      → ws://192.168.1.10:8765   (uvicorn on your machine)
+//   rendered → https://voie-agent.onrender.com  (converted to wss:// below)
 // The FastAPI voice server runs on port 8765 by default (backend/voice_agent/).
 // On a physical phone, "localhost" is the phone itself, so in development we fall
 // back to the Expo dev server's LAN host (same machine that runs uvicorn).
@@ -32,9 +34,21 @@ const DEV_HOST = (() => {
   }
   return s.split(':')[0] || undefined;
 })();
-const VOICE_SERVER =
-  (process.env.EXPO_PUBLIC_VOICE_SERVER_URL as string | undefined) ??
-  (Platform.OS !== 'web' && DEV_HOST ? `ws://${DEV_HOST}:8765` : 'ws://localhost:8765');
+
+/** WebSocket URLs only accept ws:/wss: — convert http(s):// hosts (e.g. Render). */
+function toWsUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  if (/^https:\/\//i.test(trimmed)) return trimmed.replace(/^https:/i, 'wss:');
+  if (/^http:\/\//i.test(trimmed)) return trimmed.replace(/^http:/i, 'ws:');
+  if (/^wss:\/\//i.test(trimmed) || /^ws:\/\//i.test(trimmed)) return trimmed;
+  return `ws://${trimmed}`;
+}
+
+const VOICE_SERVER = (() => {
+  const envUrl = process.env.EXPO_PUBLIC_VOICE_SERVER_URL;
+  if (envUrl) return toWsUrl(envUrl);
+  return Platform.OS !== 'web' && DEV_HOST ? `ws://${DEV_HOST}:8765` : 'ws://localhost:8765';
+})();
 
 type AgentType = 'v1' | 'v3';
 type Mode = 'donor' | 'shelter';
@@ -417,6 +431,9 @@ export default function VoiceScreen() {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      // The socket can still deliver queued events after disconnect()/close()
+      // (or after a quick stop→restart) — only act if this is the current socket.
+      if (wsRef.current !== ws) return;
       setStatus('connected');
       addLog('WebSocket connected');
       if (isWeb) {
