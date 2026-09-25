@@ -34,7 +34,8 @@ pip install "pipecat-ai[sarvam,groq,whisper]==1.3.0"
 ## Run the WebSocket server (for the frontend / expoapp)
 
 ```bash
-uvicorn backend.voice_agent.server.app:app --reload --port 8765
+# --host 0.0.0.0 lets a physical phone (same Wi-Fi) reach the server
+uvicorn backend.voice_agent.server.app:app --reload --host 0.0.0.0 --port 8765
 ```
 
 - `GET /api/health` → `{"status":"ok"}`

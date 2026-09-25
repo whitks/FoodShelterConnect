@@ -1,22 +1,40 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Mic, MicOff, Play, Square, Wifi, WifiOff } from 'lucide-react-native';
+import { Mic, Play, Square, Wifi, WifiOff } from 'lucide-react-native';
+
+import Constants from 'expo-constants';
+import {
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioPlaylist,
+  useAudioStream,
+} from 'expo-audio';
+import type { AudioPlaylistStatus } from 'expo-audio';
+import { File, Paths } from 'expo-file-system';
 
 import { AppColors, AppRadius, AppShadows, AppSpacing, AppTypography } from '@/constants/theme';
 
 // ─── Voice server endpoint ────────────────────────────────────────────────────
-// Override with EXPO_PUBLIC_VOICE_SERVER_URL (e.g. wss://your-domain) in .env.
+// Override with EXPO_PUBLIC_VOICE_SERVER_URL (e.g. ws://192.168.1.10:8765) in .env.
 // The FastAPI voice server runs on port 8765 by default (backend/voice_agent/).
+// On a physical phone, "localhost" is the phone itself, so in development we fall
+// back to the Expo dev server's LAN host (same machine that runs uvicorn).
+// Handles IPv6 hostUri forms like "[::1]:8081" (split(':')[0] would yield "[").
+const DEV_HOST = (() => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri) return undefined;
+  const s = hostUri.trim();
+  if (!s) return undefined;
+  if (s.startsWith('[')) {
+    const end = s.indexOf(']');
+    return end === -1 ? undefined : s.slice(1, end);
+  }
+  return s.split(':')[0] || undefined;
+})();
 const VOICE_SERVER =
-  (process.env.EXPO_PUBLIC_VOICE_SERVER_URL as string | undefined) ?? 'ws://localhost:8765';
+  (process.env.EXPO_PUBLIC_VOICE_SERVER_URL as string | undefined) ??
+  (Platform.OS !== 'web' && DEV_HOST ? `ws://${DEV_HOST}:8765` : 'ws://localhost:8765');
 
 type AgentType = 'v1' | 'v3';
 type Mode = 'donor' | 'shelter';
@@ -29,6 +47,8 @@ interface LogEntry {
 }
 
 const BAR_COUNT = 13;
+const MIC_SAMPLE_RATE = 16000; // what the voice server expects (PCM16 mono)
+const TTS_SAMPLE_RATE = 24000; // what the voice server sends back
 
 const MODES: Record<Mode, { label: string; labelHi: string; hint: string }> = {
   donor: { label: 'Donor', labelHi: 'दान', hint: 'Donate surplus food by voice' },
@@ -36,21 +56,25 @@ const MODES: Record<Mode, { label: string; labelHi: string; hint: string }> = {
 };
 
 /**
- * Web-first voice donation agent screen.
+ * Voice donation agent screen (web + native).
  *
- * Implements the exact WebSocket protocol of the FastAPI voice server
+ * Implements the WebSocket protocol of the FastAPI voice server
  * (backend/voice_agent/server):
  *   - client → server: raw PCM16 mono, 16 kHz mic bytes (binary frames)
  *   - server → client: binary PCM16 mono, 24 kHz TTS audio + JSON text frames:
  *       {type:'log', message} | {type:'interruption'} | {type:'cost', stt, tts, total}
  *   - client may send {"type":"stop"} to end the session.
  *
- * Web Audio (getUserMedia / AudioContext / ScriptProcessorNode) is only
- * available on the web build — run `npx expo start --web`. On iOS/Android this
- * screen shows an info card instead (live PCM streaming needs a dev build).
+ * Web:  browser Web Audio (getUserMedia / AudioContext / ScriptProcessorNode).
+ *       Run `npx expo start --web`.
+ * Native: expo-audio `useAudioStream` (continuous PCM16 mic stream) + `AudioPlaylist`
+ *       fed with small WAV files built from the server's 24 kHz PCM TTS chunks.
+ *       Both work in Expo Go — no dev build required.
  */
 export default function VoiceScreen() {
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
+
   const [mode, setMode] = useState<Mode>('donor');
   const [agentType, setAgentType] = useState<AgentType>('v1');
   const [status, setStatus] = useState<Status>('disconnected');
@@ -61,12 +85,24 @@ export default function VoiceScreen() {
   const [costTotal, setCostTotal] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const isMountedRef = useRef(true);
+  const ttsPlaylistDirtyRef = useRef(false);
+
+  // ── Web-only audio refs (browser Web Audio) ────────────────────────────────
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
+
+  // ── Native-only refs (expo-audio) ─────────────────────────────────────────
+  const ttsChunksRef = useRef<Uint8Array[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ttsFileCounterRef = useRef(0);
+  const ttsFilesRef = useRef<string[]>([]);
+  const ttsPlayedCountRef = useRef(0);
+
   const scrollRef = useRef<ScrollView>(null);
 
   const addLog = useCallback((text: string) => {
@@ -82,6 +118,153 @@ export default function VoiceScreen() {
     scrollRef.current?.scrollToEnd({ animated: false });
   }, [logs]);
 
+  // ── Native: real-time PCM16 mic stream (Expo Go compatible) ───────────────
+  const handleMicBuffer = useCallback(
+    (buffer: { data: ArrayBuffer; sampleRate: number; channels: number }) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        // Server expects PCM16 mono @ 16 kHz — resample/downmix defensively.
+        ws.send(toServerPcm(buffer.data, buffer.sampleRate, buffer.channels));
+      } catch (err) {
+        addLog(`Mic send error: ${String(err)}`);
+      }
+    },
+    [addLog],
+  );
+
+  const audioStream = useAudioStream({
+    sampleRate: MIC_SAMPLE_RATE,
+    channels: 1,
+    encoding: 'int16',
+    onBuffer: handleMicBuffer,
+  });
+
+  // ── Native: gapless TTS playback via a playlist of tiny WAV files ─────────
+  const playlist = useAudioPlaylist({ loop: 'none' });
+
+  const deleteTtsFiles = useCallback((from: number, to?: number) => {
+    const files = ttsFilesRef.current;
+    const end = Math.min(to ?? files.length, files.length);
+    for (let i = Math.max(0, from); i < end; i++) {
+      const uri = files[i];
+      if (!uri) continue;
+      try {
+        new File(uri).delete();
+      } catch {
+        /* best effort */
+      }
+    }
+    // Do NOT slice the array in partial mode: the playlist reports track indices
+    // in playlist space, so the array must stay index-aligned with the playlist,
+    // otherwise a later trackChanged would delete the *currently playing* file
+    // (offset drift). Only a full cleanup (to === undefined, on stop/unmount)
+    // resets the list, which is safe because the playlist is cleared first.
+    if (to === undefined) ttsFilesRef.current = [];
+  }, []);
+
+  const stopNativeTts = useCallback(() => {
+    try {
+      playlist.pause();
+      playlist.clear();
+    } catch {
+      /* ignore */
+    }
+    ttsChunksRef.current = [];
+    ttsPlayedCountRef.current = 0;
+    ttsPlaylistDirtyRef.current = false;
+  }, [playlist]);
+
+  const flushNativeTts = useCallback(() => {
+    const chunks = ttsChunksRef.current;
+    if (chunks.length === 0) return;
+    let total = 0;
+    for (const c of chunks) total += c.byteLength;
+    if (total === 0) {
+      ttsChunksRef.current = [];
+      return;
+    }
+
+    const pcm = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) {
+      pcm.set(c, off);
+      off += c.byteLength;
+    }
+    ttsChunksRef.current = [];
+
+    const wav = buildWavBytes(pcm, TTS_SAMPLE_RATE);
+    const file = new File(Paths.cache, `voice-tts-${ttsFileCounterRef.current++}.wav`);
+    try {
+      file.create({ overwrite: true });
+      file.write(wav);
+    } catch (err) {
+      addLog(`TTS file error: ${String(err)}`);
+      // Remove the partially-created file so the cache dir doesn't accumulate
+      // untracked WAVs (they'd never be cleaned up by deleteTtsFiles).
+      try {
+        new File(file.uri).delete();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    try {
+      ttsFilesRef.current.push(file.uri);
+      playlist.add(file.uri);
+      if (!playlist.playing) playlist.play();
+    } catch (err) {
+      addLog(`TTS play error: ${String(err)}`);
+    }
+  }, [addLog, playlist]);
+
+  const startFlushTimer = useCallback(() => {
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = setInterval(() => flushNativeTts(), 300);
+  }, [flushNativeTts]);
+
+  const stopFlushTimer = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearInterval(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+  }, []);
+
+  // Native: subscribe to playback events — cleanup played WAV files and keep
+  // the speaking/listening UI in sync (event callbacks, so no setState-in-effect).
+  useEffect(() => {
+    if (isWeb) return;
+    const unsubStatus = playlist.addListener('playlistStatusUpdate', (s: AudioPlaylistStatus) => {
+      if (s.playing) {
+        setStatus(prev => (prev === 'speaking' || prev === 'connected' ? 'speaking' : prev));
+        setWave('speaking');
+      } else if (s.didJustFinish || ttsPlaylistDirtyRef.current) {
+        setStatus(prev => (prev === 'speaking' ? 'connected' : prev));
+        setWave('listening');
+        ttsPlaylistDirtyRef.current = false;
+      }
+    });
+    const unsubTrack = playlist.addListener(
+      'trackChanged',
+      ({ currentIndex }: { previousIndex: number; currentIndex: number }) => {
+        if (currentIndex > ttsPlayedCountRef.current) {
+          deleteTtsFiles(ttsPlayedCountRef.current, currentIndex);
+          ttsPlayedCountRef.current = currentIndex;
+        }
+      },
+    );
+    return () => {
+      try {
+        unsubStatus.remove();
+        unsubTrack.remove();
+      } catch {
+        /* already removed */
+      }
+    };
+  }, [playlist, isWeb, deleteTtsFiles]);
+
+  // ── Web-only audio helpers (browser Web Audio API) ─────────────────────────
   const stopPlayback = useCallback(() => {
     isPlayingRef.current = false;
     playbackQueueRef.current = [];
@@ -90,7 +273,7 @@ export default function VoiceScreen() {
   const playAudio = useCallback(async (pcmBytes: ArrayBuffer) => {
     try {
       if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
+        audioCtxRef.current = new AudioContext({ sampleRate: TTS_SAMPLE_RATE });
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') await ctx.resume();
@@ -101,7 +284,7 @@ export default function VoiceScreen() {
         floatData[i] = pcmData[i] / 32768;
       }
 
-      const buffer = ctx.createBuffer(1, floatData.length, 24000);
+      const buffer = ctx.createBuffer(1, floatData.length, TTS_SAMPLE_RATE);
       buffer.getChannelData(0).set(floatData);
       playbackQueueRef.current.push(buffer);
 
@@ -127,12 +310,12 @@ export default function VoiceScreen() {
     }
   }, []);
 
-  const startMic = useCallback(
+  const startMicWeb = useCallback(
     async (ws: WebSocket) => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
-        const ctx = new AudioContext({ sampleRate: 16000 });
+        const ctx = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
         audioCtxRef.current = ctx;
         const source = ctx.createMediaStreamSource(stream);
         sourceRef.current = source;
@@ -167,7 +350,7 @@ export default function VoiceScreen() {
     [addLog],
   );
 
-  const stopMic = useCallback(() => {
+  const stopMicWeb = useCallback(() => {
     if (processorRef.current && sourceRef.current) {
       processorRef.current.disconnect();
       sourceRef.current.disconnect();
@@ -185,27 +368,84 @@ export default function VoiceScreen() {
     stopPlayback();
   }, [stopPlayback]);
 
+  // ── Native microphone (expo-audio AudioStream, works in Expo Go) ───────────
+  const startMicNative = useCallback(async () => {
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        addLog('Mic permission denied — enable it in your phone Settings');
+        setStatus('error');
+        return;
+      }
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      if (!isMountedRef.current) return;
+      if (audioStream.stream.isStreaming) audioStream.stream.stop();
+      await audioStream.stream.start();
+      addLog(`Microphone active (PCM16 ${MIC_SAMPLE_RATE} Hz)`);
+    } catch (err) {
+      addLog(`Mic error: ${String(err)}`);
+      setStatus('error');
+    }
+  }, [addLog, audioStream]);
+
+  const stopMicNative = useCallback(() => {
+    try {
+      if (audioStream.stream.isStreaming) audioStream.stream.stop();
+    } catch {
+      /* ignore */
+    }
+    setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+  }, [audioStream]);
+
+  // ── Connection lifecycle ───────────────────────────────────────────────────
   const connect = useCallback(() => {
     if (wsRef.current) return;
     setStatus('connecting');
     setWave('listening');
     addLog(`Connecting to ${VOICE_SERVER}/ws/${agentType}...`);
 
-    const ws = new WebSocket(`${VOICE_SERVER}/ws/${agentType}?mode=${mode}`);
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(`${VOICE_SERVER}/ws/${agentType}?mode=${mode}`);
+    } catch (err) {
+      addLog(`WebSocket error: ${String(err)}`);
+      setStatus('error');
+      setWave('idle');
+      return;
+    }
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
 
     ws.onopen = () => {
       setStatus('connected');
       addLog('WebSocket connected');
-      startMic(ws);
+      if (isWeb) {
+        startMicWeb(ws);
+      } else {
+        startMicNative();
+        startFlushTimer();
+      }
     };
 
     ws.onmessage = e => {
+      // Ignore frames that arrive after disconnect()/close() — the socket can
+      // deliver already-queued messages after teardown, which would otherwise
+      // re-run flushNativeTts and play audio (plus leak WAV files) post-stop.
+      if (wsRef.current !== ws) return;
       if (e.data instanceof ArrayBuffer) {
-        setWave('speaking');
-        setStatus('speaking');
-        playAudio(e.data);
+        if (isWeb) {
+          setWave('speaking');
+          setStatus('speaking');
+          playAudio(e.data);
+        } else {
+          setStatus('speaking');
+          setWave('speaking');
+          ttsPlaylistDirtyRef.current = true;
+          ttsChunksRef.current.push(new Uint8Array(e.data));
+          // Flush promptly once ~0.5s of audio has accumulated for lower latency.
+          const buffered = ttsChunksRef.current.reduce((n, c) => n + c.byteLength, 0);
+          if (buffered >= TTS_SAMPLE_RATE * 2 * 0.5) flushNativeTts();
+        }
       } else {
         try {
           const msg = JSON.parse(String(e.data)) as {
@@ -219,9 +459,15 @@ export default function VoiceScreen() {
             addLog(msg.message ?? '');
           } else if (msg.type === 'interruption') {
             addLog('Interruption');
-            stopPlayback();
-            setStatus('connected');
-            setWave('listening');
+            if (isWeb) {
+              stopPlayback();
+              setStatus('connected');
+              setWave('listening');
+            } else {
+              stopNativeTts();
+              setStatus('connected');
+              setWave('listening');
+            }
           } else if (msg.type === 'cost') {
             setCostStt(msg.stt ?? 0);
             setCostTts(msg.tts ?? 0);
@@ -244,28 +490,67 @@ export default function VoiceScreen() {
       setStatus('disconnected');
       setWave('idle');
       wsRef.current = null;
-      stopMic();
+      stopFlushTimer();
+      if (isWeb) {
+        stopMicWeb();
+      } else {
+        stopMicNative();
+        stopNativeTts();
+        deleteTtsFiles(0);
+        ttsFileCounterRef.current = 0;
+      }
     };
-  }, [agentType, mode, addLog, startMic, stopMic, playAudio, stopPlayback]);
+  }, [
+    agentType,
+    mode,
+    isWeb,
+    addLog,
+    startMicWeb,
+    startMicNative,
+    stopMicWeb,
+    stopMicNative,
+    startFlushTimer,
+    stopFlushTimer,
+    stopNativeTts,
+    playAudio,
+    stopPlayback,
+    flushNativeTts,
+    deleteTtsFiles,
+  ]);
 
   const disconnect = useCallback(() => {
     if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({ type: 'stop' }));
+      try {
+        wsRef.current.send(JSON.stringify({ type: 'stop' }));
+      } catch {
+        /* socket already CLOSING/CLOSED — still run local teardown below */
+      }
       wsRef.current.close();
       wsRef.current = null;
     }
-    stopMic();
+    stopFlushTimer();
+    if (isWeb) {
+      stopMicWeb();
+    } else {
+      stopMicNative();
+      stopNativeTts();
+      deleteTtsFiles(0);
+      ttsFileCounterRef.current = 0;
+    }
     setStatus('disconnected');
     setWave('idle');
     setCostStt(0);
     setCostTts(0);
     setCostTotal(0);
     addLog('Disconnected');
-  }, [addLog, stopMic]);
+  }, [isWeb, addLog, stopMicWeb, stopMicNative, stopNativeTts, stopFlushTimer, deleteTtsFiles]);
 
   // Cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      stopFlushTimer();
       if (wsRef.current) {
         try {
           wsRef.current.send(JSON.stringify({ type: 'stop' }));
@@ -275,11 +560,16 @@ export default function VoiceScreen() {
         wsRef.current.close();
         wsRef.current = null;
       }
-      stopMic();
+      if (isWeb) {
+        stopMicWeb();
+      } else {
+        stopMicNative();
+        stopNativeTts();
+        deleteTtsFiles(0);
+      }
     };
-  }, [stopMic]);
-
-  const isWeb = Platform.OS === 'web';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const statusInfo = (() => {
     if (status === 'connecting') return { text: 'Connecting…', color: AppColors.warning };
@@ -288,29 +578,6 @@ export default function VoiceScreen() {
     if (status === 'error') return { text: 'Error', color: AppColors.danger };
     return { text: 'Standby', color: AppColors.textMuted };
   })();
-
-  if (!isWeb) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
-        <Header mode={mode} />
-        <View style={styles.nativeCard}>
-          <MicOff size={28} color={AppColors.textSecondary} />
-          <Text style={styles.nativeTitle}>Voice agent is web-only</Text>
-          <Text style={styles.nativeBody}>
-            Live mic streaming uses the browser Web Audio API, which is not available in Expo Go.
-            Run the web build to use the voice donation agent:
-          </Text>
-          <View style={styles.codeBox}>
-            <Text style={styles.codeText}>npx expo start --web</Text>
-          </View>
-          <Text style={styles.nativeBody}>
-            Then open the app in a browser and connect to the voice server
-            ({VOICE_SERVER.replace(/^ws:\/\//, 'http://')}).
-          </Text>
-        </View>
-      </View>
-    );
-  }
 
   const connected = status !== 'disconnected';
 
@@ -437,7 +704,9 @@ export default function VoiceScreen() {
             nestedScrollEnabled
             showsVerticalScrollIndicator>
             {logs.length === 0 ? (
-              <Text style={styles.logEmpty}>Select mode & engine, then press Start</Text>
+              <Text style={styles.logEmpty}>
+                Works on web AND native. Select mode & engine, then press Start
+              </Text>
             ) : (
               logs.map((log, i) => (
                 <View key={i} style={styles.logLine}>
@@ -454,8 +723,7 @@ export default function VoiceScreen() {
         {/* Cost panel */}
         <View style={styles.costCard}>
           <Text style={styles.sectionLabel}>
-            API Pricing{' '}
-            <Text style={styles.costEngine}>— v{agentType}</Text>
+            API Pricing <Text style={styles.costEngine}>— v{agentType}</Text>
           </Text>
           <CostRow
             label={agentType === 'v1' ? 'Sarvam STT (Saaras v3)' : 'Groq Whisper STT'}
@@ -472,6 +740,84 @@ export default function VoiceScreen() {
       </ScrollView>
     </View>
   );
+}
+
+/**
+ * Converts any incoming PCM16 buffer to PCM16 mono @ 16 kHz (server format).
+ * Handles differing sample rates (linear resample) and channel downmix.
+ */
+function toServerPcm(data: ArrayBuffer, fromRate: number, channels: number): ArrayBuffer {
+  if (fromRate === MIC_SAMPLE_RATE && channels === 1) return data;
+
+  const input = new Int16Array(data);
+  const floatLen = Math.floor(input.length / Math.max(1, channels));
+  const float = new Float32Array(floatLen);
+
+  if (channels === 1) {
+    for (let i = 0; i < floatLen; i++) float[i] = input[i] / 32768;
+  } else {
+    for (let i = 0; i < floatLen; i++) {
+      let s = 0;
+      for (let c = 0; c < channels; c++) s += input[i * channels + c] / 32768;
+      float[i] = s / channels;
+    }
+  }
+
+  let out = float;
+  if (fromRate !== MIC_SAMPLE_RATE && fromRate > 0) {
+    const ratio = MIC_SAMPLE_RATE / fromRate;
+    const outLen = Math.max(1, Math.round(float.length * ratio));
+    out = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const pos = i / ratio;
+      const i0 = Math.floor(pos);
+      const i1 = Math.min(float.length - 1, i0 + 1);
+      const frac = pos - i0;
+      out[i] = float[i0] * (1 - frac) + float[i1] * frac;
+    }
+  }
+
+  const pcm = new Int16Array(out.length);
+  for (let i = 0; i < out.length; i++) {
+    const s = Math.max(-1, Math.min(1, out[i]));
+    pcm[i] = s < 0 ? s * 32768 : s * 32767;
+  }
+  return pcm.buffer;
+}
+
+/** Wraps raw PCM16 bytes in a minimal valid WAV container for playback. */
+function buildWavBytes(pcm: Uint8Array, sampleRate: number): Uint8Array {
+  const channels = 1;
+  const bitsPerSample = 16;
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const dataSize = pcm.byteLength;
+
+  const header = new ArrayBuffer(44);
+  const dv = new DataView(header);
+
+  const writeStr = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++) dv.setUint8(offset + i, s.charCodeAt(i));
+  };
+
+  writeStr(0, 'RIFF');
+  dv.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true); // PCM
+  dv.setUint16(22, channels, true);
+  dv.setUint32(24, sampleRate, true);
+  dv.setUint32(28, byteRate, true);
+  dv.setUint16(32, blockAlign, true);
+  dv.setUint16(34, bitsPerSample, true);
+  writeStr(36, 'data');
+  dv.setUint32(40, dataSize, true);
+
+  const out = new Uint8Array(44 + dataSize);
+  out.set(new Uint8Array(header), 0);
+  out.set(pcm, 44);
+  return out;
 }
 
 function Header({ mode }: { mode: Mode }) {
@@ -802,35 +1148,5 @@ const styles = StyleSheet.create({
   totalValue: {
     ...AppTypography.h4,
     color: AppColors.success,
-  },
-  nativeCard: {
-    margin: AppSpacing.lg,
-    backgroundColor: AppColors.card,
-    borderRadius: AppRadius.lg,
-    padding: AppSpacing.xxl,
-    alignItems: 'center',
-    gap: AppSpacing.md,
-    ...AppShadows.md,
-  },
-  nativeTitle: {
-    ...AppTypography.h3,
-    color: AppColors.textPrimary,
-  },
-  nativeBody: {
-    ...AppTypography.body,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  codeBox: {
-    backgroundColor: AppColors.primary,
-    borderRadius: AppRadius.md,
-    paddingVertical: AppSpacing.md,
-    paddingHorizontal: AppSpacing.lg,
-  },
-  codeText: {
-    ...AppTypography.bodyBold,
-    color: AppColors.secondary,
-    fontFamily: 'monospace',
   },
 });

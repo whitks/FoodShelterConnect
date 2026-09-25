@@ -7,7 +7,7 @@ import {
   TabListProps,
 } from 'expo-router/ui';
 import { Pressable, View, StyleSheet, Text, Platform } from 'react-native';
-import { Recycle, Home as HomeIcon, PlusCircle, HeartHandshake, MapPin } from 'lucide-react-native';
+import { Recycle, Home as HomeIcon, PlusCircle, HeartHandshake, Mic } from 'lucide-react-native';
 
 export default function AppTabs() {
   return (
@@ -23,6 +23,9 @@ export default function AppTabs() {
           </TabTrigger>
           <TabTrigger name="shelter" href="/shelter" asChild>
             <TabButton icon={HeartHandshake}>Shelters</TabButton>
+          </TabTrigger>
+          <TabTrigger name="voice" href="/voice" asChild>
+            <TabButton icon={Mic}>Voice</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
